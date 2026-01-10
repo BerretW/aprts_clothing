@@ -1,0 +1,42 @@
+local MenuOpen = false
+
+RegisterNuiCallback('closeClothingMenu', function(data, cb)
+    SetNuiFocus(false, false)
+    MenuOpen = false
+    cb('ok')
+end)
+
+
+RegisterNuiCallback("applyItem", function(data, cb)
+    local ped = PlayerPedId()
+    local cat = data.category
+    local index = data.index
+    local varID = data.varID
+    ApplyDataToPed(ped, cat, index, varID)
+    cb('ok')
+end)
+
+RegisterNuiCallback("removeItem", function(data, cb)
+    local ped = PlayerPedId()
+    local cat = data.category
+    RemoveTagFromMetaPed(cat, ped)
+    cb('ok')
+end)
+
+RegisterNuiCallback("changeTint", function(data, cb)
+    local ped = PlayerPedId()
+    local cat = data.category
+    local tint0 = data.tint0
+    local tint1 = data.tint1
+    local tint2 = data.tint2
+    ChangeTintForCategory(ped, cat, tint0, tint1, tint2)
+    cb('ok')
+end)
+
+RegisterNuiCallback("changePalette", function(data, cb)
+    local ped = PlayerPedId()
+    local cat = data.category
+    local palette = data.palette
+    ChangePaletteForCategory(ped, cat, palette)
+    cb('ok')
+end)
