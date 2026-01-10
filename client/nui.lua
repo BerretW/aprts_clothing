@@ -7,6 +7,12 @@ RegisterNuiCallback('closeClothingMenu', function(data, cb)
 end)
 
 
+RegisterNUICallback('getCatData', function(data, cb)
+    local gender = data.gender
+    local category = data.category
+    cb(Assets[gender][category])
+end)
+
 RegisterNuiCallback("applyItem", function(data, cb)
     local ped = PlayerPedId()
     local cat = data.category

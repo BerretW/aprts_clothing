@@ -90,6 +90,6 @@ RegisterCommand("openClothingMenu", function(source, args, rawCommand)
         action = "openClothingMenu",
         categories = GetCategoriesNamesForMenu(),
         playerClothes = PlayerClothes,
-        data = Assets[gender]
+        gender = gender
     })
 end, false  )
