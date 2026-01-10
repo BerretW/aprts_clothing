@@ -82,14 +82,19 @@ end, false  )
 RegisterCommand("openClothingMenu", function(source, args, rawCommand)
     SetNuiFocus(true, true)
     MenuOpen = true
+    
     local gender = "male"
     if not IsPedMale(PlayerPedId()) then
         gender  = "female"
     end
+    
+    -- Zde posíláme Config.ClothingMenu. Můžeš sem poslat jakoukoliv jinou tabulku se stejnou strukturou.
+    local menuData = GetStructuredMenu(Config.ClothingMenu)
+    
     SendNUIMessage({
         action = "openClothingMenu",
-        categories = GetCategoriesNamesForMenu(),
-        playerClothes = PlayerClothes,
-        gender = gender
+        menuData = menuData, -- Posíláme novou strukturu
+        gender = gender,
+        creatorMode = false
     })
-end, false  )
+end, false)

@@ -3,6 +3,7 @@
 
 PlayerClothes = {}
 ClothesCache = {}
+dataReady = false
 Progressbar = exports["vorp_progressbar"]:initiate()
 playingAnimation = false
 function debugPrint(msg)
@@ -232,3 +233,11 @@ end
 --     end
 -- end)
 -- -- 
+
+
+exports("creator", function()
+    while not dataReady do
+        Citizen.Wait(100)
+    end
+    return PlayerClothes
+end)

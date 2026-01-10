@@ -15,8 +15,18 @@ shared_scripts {
     'data/assets.lua',
     'data/componentsbody.lua',
     'data/wearablestates.lua',
+    'data/translate.lua',
     'config.lua',
     '@jo_libs/init.lua',
     '@ox_lib/init.lua'
 }
 
+ui_page 'nui/index.html'
+
+files {
+    'nui/index.html',
+    'nui/style.css',
+    'nui/script.js',
+    'nui/fonts/*.ttf', -- Pokud budeš chtít custom fonty (volitelné)
+    'nui/img/*.png'    -- Pokud budeš chtít obrázky (volitelné)
+}

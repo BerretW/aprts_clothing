@@ -1,0 +1,225 @@
+* {
+    box-sizing: border-box;
+    user-select: none;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Roboto', sans-serif;
+    /* Menu bude zarovnané doprava */
+    display: flex;
+    justify-content: flex-end; 
+    align-items: center;
+    padding-right: 50px; /* Odsazení od pravého okraje */
+}
+
+/* Hlavní kontejner - úzký sloupec */
+.container {
+    width: 350px;
+    height: 85vh; 
+    background: radial-gradient(circle, rgba(20,20,20,0.96) 0%, rgba(10,10,10,0.92) 100%);
+    border: 2px solid #5c5c5c;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    color: #e0e0e0;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    position: relative;
+}
+
+.header {
+    height: 55px;
+    background: #8a0000; /* Red Dead Red */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 15px;
+    border-bottom: 2px solid #333;
+    flex-shrink: 0;
+}
+
+.header h1 {
+    font-family: 'Rye', serif;
+    font-size: 24px;
+    color: #fff;
+    margin: 0;
+    text-shadow: 2px 2px 0 #000;
+}
+
+.close-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.2s;
+}
+.close-btn:hover { color: #ccc; }
+
+.content-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* --- Seznam kategorií --- */
+.category-list {
+    flex: 1;
+    overflow-y: auto;
+    border-bottom: 1px solid #444;
+}
+
+/* Styl pro nadpis sekce (např. TORSO) */
+.menu-header {
+    background: #1a1a1a;
+    color: #8a0000;
+    font-family: 'Rye', serif;
+    padding: 12px 15px 5px 15px;
+    font-size: 14px;
+    border-bottom: 1px solid #333;
+    text-shadow: 1px 1px 0 #000;
+    pointer-events: none;
+    margin-top: 5px;
+}
+.menu-header:first-child { margin-top: 0; }
+
+/* Úprava tlačítek kategorií */
+.cat-btn {
+    padding: 10px 15px 10px 25px;
+    border-bottom: 1px solid #2a2a2a;
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+    color: #ccc;
+    transition: 0.2s;
+    text-transform: capitalize;
+}
+
+.cat-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    padding-left: 30px;
+}
+
+.cat-btn.active {
+    background: rgba(138, 0, 0, 0.2);
+    color: #d4af37;
+    font-weight: bold;
+    border-left: 4px solid #d4af37;
+    padding-left: 21px;
+}
+
+/* --- Editor Panel (Spodní část) --- */
+.editor-panel {
+    height: auto;
+    min-height: 200px;
+    background: rgba(0,0,0,0.4);
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-top: 2px solid #d4af37;
+}
+
+.editor-title {
+    font-family: 'Rye', serif;
+    color: #d4af37;
+    text-align: center;
+    margin: 0 0 5px 0;
+    font-size: 18px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 8px;
+}
+
+/* Ovládací prvky */
+.control-row {
+    display: flex;
+    flex-direction: column;
+}
+
+.control-row label {
+    font-size: 12px;
+    color: #aaa;
+    margin-bottom: 4px;
+    font-weight: bold;
+}
+
+.stepper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 2px;
+}
+
+.stepper button {
+    background: #333;
+    border: none;
+    color: #fff;
+    width: 35px;
+    height: 30px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.2s;
+}
+.stepper button:hover { background: #555; }
+
+.stepper span {
+    font-size: 14px;
+    font-family: 'Roboto', sans-serif;
+    font-weight: bold;
+}
+
+select {
+    width: 100%;
+    padding: 6px;
+    background: #222;
+    color: #fff;
+    border: 1px solid #555;
+    font-size: 13px;
+    border-radius: 3px;
+}
+
+input[type=range] {
+    width: 100%;
+    height: 6px;
+    accent-color: #8a0000;
+    margin-bottom: 3px;
+    cursor: pointer;
+}
+
+.buttons-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    font-family: 'Rye', serif;
+    font-size: 13px;
+    color: white;
+    text-shadow: 1px 1px 0 #000;
+    border-radius: 3px;
+}
+
+.btn-remove { background: #600; border: 1px solid #900; }
+.btn-save { background: #060; border: 1px solid #090; }
+.btn:hover { opacity: 0.8; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1a1a1a; }
+::-webkit-scrollbar-thumb { background: #8a0000; border-radius: 3px; }

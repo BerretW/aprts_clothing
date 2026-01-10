@@ -266,6 +266,11 @@ function SetCategoryVisibility(ped, category, visible)
     end
 end
 
+function RefreshShopItems(ped)
+    local playerPed = ped or PlayerPedId()
+    Citizen.InvokeNative(0x59BD177A1A48600A, playerPed, 1)
+    -- UpdatePedVariation(playerPed)
+end
 
 function DressDataToPed(ped, data)
     for cat, catData in pairs(data) do
@@ -278,9 +283,58 @@ function GetCategoriesNamesForMenu()
     if not IsPedMale(PlayerPedId()) then
         gender = "female"
     end
+    
     local list = {}
-    for cat, data in pairs(Assets[gender]) do
-        table.insert(list, cat)
+    if Assets[gender] then
+        for cat, data in pairs(Assets[gender]) do
+            -- Zkontrolujeme, zda kategorie obsahuje data a není prázdná
+            if data and type(data) == "table" and #data > 0 then
+                table.insert(list, cat)
+            end
+        end
     end
+    
+    -- Seřadíme abecedně
+    table.sort(list)
+    
     return list
+end
+
+-- Funkce pro získání strukturovaného menu podle Configu
+function GetStructuredMenu(menuDefinition)
+    local ped = PlayerPedId()
+    local gender = "male"
+    if not IsPedMale(ped) then
+        gender = "female"
+    end
+    
+    local structuredList = {}
+    
+    -- Pokud nemáme definici, vrátíme prázdné
+    if not menuDefinition then return {} end
+
+    -- Projdeme definici menu (Sekce -> Seznam kategorií)
+    for sectionName, categories in pairs(menuDefinition) do
+        local validCategories = {}
+        
+        for _, cat in ipairs(categories) do
+            -- Zkontrolujeme, zda kategorie existuje v Assets pro dané pohlaví a zda má položky
+            if Assets[gender] and Assets[gender][cat] and #Assets[gender][cat] > 0 then
+                table.insert(validCategories, cat)
+            end
+        end
+        
+        -- Pokud má sekce alespoň jednu platnou kategorii, přidáme ji do seznamu
+        if #validCategories > 0 then
+            table.insert(structuredList, {
+                header = sectionName,
+                items = validCategories
+            })
+        end
+    end
+
+    -- Seřadíme sekce abecedně (volitelné, protože pairs v Lua je náhodné)
+    table.sort(structuredList, function(a, b) return a.header < b.header end)
+
+    return structuredList
 end
