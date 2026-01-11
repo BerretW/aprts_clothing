@@ -8,7 +8,7 @@ end, false)
 
 RegisterCommand("catData", function(source, args, rawCommand)
     local ped = PlayerPedId()
-    local TagData = GetMetaPedData("suspenders", ped)
+    local TagData = GetMetaPedData("bodies_upper", ped)
     print(json.encode(TagData))
 end, false)
 

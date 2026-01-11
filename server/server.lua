@@ -1,6 +1,7 @@
 MySQL = exports.oxmysql
 Core = exports.vorp_core:GetCore()
 PlayersClothes = {  }
+
 function debugPrint(msg)
     if Config.Debug == true then
         print("^1[SCRIPT]^0 " .. msg)
@@ -100,10 +101,10 @@ function DiscordWeb(name, message, footer)
 end
 
 function LokiLog(event, player, playerName, message, ...)
-
     local text = Player(player).state.Character.CharId .. "/" .. playerName .. ": " .. message
-    lib.logger(player, event, text, ...)
-
+    if lib and lib.logger then
+        lib.logger(player, event, text, ...)
+    end
 end
 
 function LOG(player, event, message, ...)
@@ -118,11 +119,10 @@ function LOG(player, event, message, ...)
         print("^1[" .. event .. "]^0 " .. text)
     end
     DiscordWeb(event .. ", " .. playerName, message, os.date("Datum: %d.%m.%Y Čas: %H:%M:%S"))
-    lib.logger(player, event, text, ...)
-
+    if lib and lib.logger then
+        lib.logger(player, event, text, ...)
+    end
 end
-
-
 
 function SavePlayerData(charID, clothesData)
     local clothesJSON = json.encode(clothesData)
@@ -136,17 +136,23 @@ function SavePlayerData(charID, clothesData)
     })
 end
 
-
 function LoadPlayerData(charID)
     local clothesData = nil
+    local finished = false -- Přidána kontrola dokončení
+    
     MySQL:execute("SELECT data FROM aprts_clothes WHERE charID = @charid", {
         ['@charid'] = charID
     }, function(result)
         if result and result[1] and result[1].data then
             clothesData = safeJsonDecode(result[1].data)
+        else
+            clothesData = {} -- Pokud data neexistují, vrátíme prázdnou tabulku
         end
+        finished = true
     end)
-    while clothesData == nil do
+
+    -- Čekáme na dokončení DB dotazu
+    while not finished do
         Wait(100)
     end
     return clothesData

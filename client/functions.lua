@@ -43,10 +43,6 @@ function reapplySkinTexture(gender)
     Citizen.InvokeNative(0xC5E7204F322E49EB, PlayerPedId(), albedoHash, normalHash, materialHash)
 end
 
-function RemoveShopItemFromPed(comp, ped)
-    print("Removing ShopItem:", comp)
-    RemoveShopItemFromPed(ped or PlayerPedId(), comp, 0, 0, 0)
-end
 
 function RemoveTagFromMetaPed(cat, ped)
     local hash = GetHashKey(cat)

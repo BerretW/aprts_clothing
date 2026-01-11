@@ -4,9 +4,11 @@
 PlayerClothes = {}
 ClothesCache = {}
 dataReady = false
-OriginalBody = {} -- <== PŘIDAT TOTO
+OriginalBody = {} 
+MenuOpen = false -- OPRAVA: Globální proměnná pro stav menu
 Progressbar = exports["vorp_progressbar"]:initiate()
-playingAnimation = false
+playingAnimation = false -- OPRAVA: sjednoceno malé p
+
 function debugPrint(msg)
     if Config.Debug == true then
         print("^1[SCRIPT]^0 " .. msg)
@@ -39,10 +41,6 @@ function round(num)
     return math.floor(num * 100 + 0.5) / 100
 end
 
--- Config.Jobs = {
---     {job = 'police', grade = 1},
---     {job = 'doctor', grade = 3}
--- }
 function hasJob(jobtable)
     if not jobtable or  table.count(jobtable) == 0 then
         return true
@@ -57,45 +55,17 @@ function hasJob(jobtable)
     end
     return false
 end
--- SetResourceKvp("aprts_vzor:deht", 0)
--- local deht = GetResourceKvpString("aprts_vzor:deht")
-
--- local function prompt()
---     Citizen.CreateThread(function()
---         local str = "Sběr Dehtu"
---         local wait = 0
---         Prompt = Citizen.InvokeNative(0x04F97DE45A519419)
---         PromptSetControlAction(Prompt, 0x760A9C6F)
---         str = CreateVarString(10, 'LITERAL_STRING', str)
---         PromptSetText(Prompt, str)
---         PromptSetEnabled(Prompt, true)
---         PromptSetVisible(Prompt, true)
---         PromptSetHoldMode(Prompt, true)
---         PromptSetGroup(Prompt, promptGroup)
---         PromptRegisterEnd(Prompt)
---     end)
--- end
 
 --- Bezpečné zavolání exportu s návratovou hodnotou a defaultem
---- @param resourceName string - Název scriptu (např. 'aprts_metabolism')
---- @param functionName string - Název exportu (např. 'getMetabolism')
---- @param defaultReturn any - Co se má vrátit, když to selže (např. false, 0, nebo prázdná tabulka {})
---- @param ... any - Případné argumenty pro ten export
 function SafeExport(resourceName, functionName, defaultReturn, ...)
-    -- 1. Rychlá kontrola, jestli script vůbec běží. Ušetří výkon, než volat pcall.
     if GetResourceState(resourceName) ~= "started" then
         debugPrint("^1[ERROR]^7 Export failed: " .. resourceName .. " is not started.")
         return defaultReturn
     end
-
-    -- 2. Samotný pokus o zavolání exportu
     local success, result = pcall(exports[resourceName][functionName], ...)
-
-    -- 3. Pokud proběhlo OK, vrátíme výsledek, jinak default
     if success then
         return result
     else
-        -- Volitelně: Můžeš si sem dát print pro debug, pokud chceš vidět, že to spadlo
         debugPrint("^1[ERROR]^7 Export failed: " .. resourceName .. ":" .. functionName .. " Error: " .. tostring(result))
         return defaultReturn
     end
@@ -103,7 +73,7 @@ end
 
 
 function playAnim(entity, dict, name, flag, time)
-    playingAnimation = true
+    playingAnimation = true -- OPRAVA: malé p
     RequestAnimDict(dict)
     local waitSkip = 0
     while not HasAnimDictLoaded(dict) do
@@ -119,7 +89,7 @@ function playAnim(entity, dict, name, flag, time)
 
     TaskPlayAnim(entity, dict, name, 1.0, 1.0, time, flag, 0, true, 0, false, 0, false)
     Wait(time)
-    playingAnimation = false
+    playingAnimation = false -- OPRAVA: malé p
 end
 
 function equipProp(model, bone, coords)
@@ -133,8 +103,6 @@ function equipProp(model, bone, coords)
 end
 
 function CreateBlip(coords, sprite, name)
-    -- print("Creating Blip: ")
-    -- hash sprite if is string
     if type(sprite) == "string" then
         sprite = GetHashKey(sprite)
     end
@@ -146,7 +114,6 @@ function CreateBlip(coords, sprite, name)
 end
 
 function SetBlipStyle(blip, styleHash)
-    -- hash if stylehash is string
     if type(styleHash) == "string" then
         styleHash = GetHashKey(styleHash)
     end
@@ -163,9 +130,9 @@ end
 
 function isGreenTime()
     local year, month, day, hour, minute, second = GetPosixTime()
-    hour = tonumber(hour) + tonumber(Config.DST) -- Přidáme DST, pokud je potřeba
+    hour = tonumber(hour) + tonumber(Config.DST)
     if hour > 23 then
-        hour = hour - 24 -- Oprava, pokud hodina přesáhne 23
+        hour = hour - 24
     end
     if hour >= Config.GreenTimeStart and hour < Config.GreenTimeEnd then
         return true
@@ -176,7 +143,8 @@ end
 CreateThread(function()
     while true do
         local pause = 1000
-        if menuOpen == true or PlayingAnimation == true then
+        -- OPRAVA: MenuOpen velké M, playingAnimation malé p (aby sedělo s definicemi)
+        if MenuOpen == true or playingAnimation == true then
             DisableActions(PlayerPedId())
             DisableBodyActions(PlayerPedId())
             pause = 0
@@ -218,24 +186,36 @@ function DisableActions(ped)
     Citizen.InvokeNative(0xFE99B66D079CF6BC, 0, 0xADEAF48C, true) -- disable melee
 end
 
--- Citizen.CreateThread(function()
---     WaitForCharacter()
---     -- prompt()
---     while true do
---         local pause = 1000
---         local playerPed = PlayerPedId()
---         -- local name = CreateVarString(10, 'LITERAL_STRING', "Prompt")
---         -- PromptSetActiveGroupThisFrame(promptGroup, name)
---         -- if PromptHasHoldModeCompleted(Prompt) then
 
---         -- end
+function OpenMenu(menu,creator)
+    SetNuiFocus(true, true)
+    MenuOpen = true
+    
+    local ped = PlayerPedId()
+    local gender = "male"
+    if not IsPedMale(ped) then
+        gender  = "female"
+    end
 
---         Citizen.Wait(pause)
---     end
--- end)
--- -- 
-
-
+    OriginalBody = {
+        bodies_upper = GetIndexFromMeta("bodies_upper", ped),
+        bodies_lower = GetIndexFromMeta("bodies_lower", ped),
+    }
+    
+    -- Pro jistotu si to i zalogujeme do konzole (F8), abys viděl, co se načetlo
+    -- print("Načteno původní tělo - Upper: " .. tostring(OriginalBody.bodies_upper) .. ", Lower: " .. tostring(OriginalBody.bodies_lower))
+    -- ==========================================================
+    
+    local menuData = GetStructuredMenu(menu)
+    
+    SendNUIMessage({
+        action = "openClothingMenu",
+        menuData = menuData, 
+        gender = gender,
+        bodyCategories = Config.BodyCategories,
+        creatorMode = creator
+    })
+end
 exports("creator", function()
     while not dataReady do
         Citizen.Wait(100)
