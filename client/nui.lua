@@ -1,0 +1,252 @@
+-- OPRAVA: Odstraněno 'local', aby byla proměnná globální a viditelná v client.lua
+MenuOpen = false
+local limits = {
+    minDist = 0.6,
+    maxDist = 3.5,
+    minHeight = -0.7,
+    maxHeight = 0.85
+}
+
+
+RegisterNUICallback('getCatData', function(data, cb)
+    local gender = data.gender
+    local category = data.category
+    
+    if not Assets or not Assets[gender] then 
+        cb({ items = {}, currentIndex = -1, currentVar = 1 })
+        return 
+    end
+
+    local items = Assets[gender][category]
+    
+    local currentIndex = -1
+    local currentVar = 1
+    
+    -- Defaultní hodnoty pro tinty a paletu
+    local savedTints = {0, 0, 0} 
+    local savedPaletteIndex = 1
+
+    if PlayerClothes[category] then
+        -- 1. Načtení indexu a varianty
+        if PlayerClothes[category].index then
+            currentIndex = PlayerClothes[category].index
+            currentVar = PlayerClothes[category].varID or 1
+        end
+
+        -- 2. Načtení Tintů
+        if PlayerClothes[category].tint then
+            savedTints = {
+                PlayerClothes[category].tint.tint0 or 0,
+                PlayerClothes[category].tint.tint1 or 0,
+                PlayerClothes[category].tint.tint2 or 0
+            }
+        end
+
+        -- 3. Načtení Palety (Musíme převést Hash zpět na Index v Configu)
+        if PlayerClothes[category].palette then
+            local currentHash = PlayerClothes[category].palette
+            for i, palName in ipairs(Config.Palettes) do
+                -- Porovnáváme Hash (v DB) s Hashem názvu z Configu
+                if GetHashKey(palName) == currentHash or palName == currentHash then
+                    savedPaletteIndex = i
+                    break
+                end
+            end
+        end
+    end
+
+    cb({
+        items = items,
+        currentIndex = currentIndex,
+        currentVar = currentVar,
+        -- Nová data pro UI
+        savedTints = savedTints,
+        savedPalette = savedPaletteIndex
+    })
+end)
+
+RegisterNuiCallback("applyItem", function(data, cb)
+    local ped = PlayerPedId()
+    local cat = data.category
+    local index = tonumber(data.index)
+    local varID = tonumber(data.varID)
+
+    ApplyItemToPed(ped, cat, index, varID)
+    cb('ok')
+end)
+
+RegisterNuiCallback("removeItem", function(data, cb)
+    local ped = PlayerPedId()
+    local cat = data.category
+    RemoveTagFromMetaPed(cat, ped)
+    cb('ok')
+end)
+
+RegisterNuiCallback("changeTint", function(data, cb)
+    local ped = PlayerPedId()
+    local cat = data.category
+    local tint0 = tonumber(data.tint0)
+    local tint1 = tonumber(data.tint1)
+    local tint2 = tonumber(data.tint2)
+    ChangeTintForCategory(ped, cat, tint0, tint1, tint2)
+    cb('ok')
+end)
+
+RegisterNuiCallback("changePalette", function(data, cb)
+    local ped = PlayerPedId()
+    local cat = data.category
+    local palette = tonumber(data.palette)
+    ChangePaletteForCategory(ped, cat, palette)
+    cb('ok')
+end)
+
+RegisterNuiCallback("refresh", function(data, cb)
+    RefreshShopItems(PlayerPedId())
+    cb('ok')
+end)
+
+RegisterNuiCallback("resetToNaked", function(data, cb)
+    local ped = PlayerPedId()
+    
+    for cat, _ in pairs(PlayerClothes) do
+        if cat ~= "bodies_upper" and cat ~= "bodies_lower" and cat ~= "heads" and cat ~= "eyes" and cat ~= "teeth" then
+             RemoveTagFromMetaPed(cat, ped)
+        end
+    end
+
+    if OriginalBody.bodies_upper then
+        ApplyItemToPed(ped, "bodies_upper", OriginalBody.bodies_upper, 1)
+    end
+    
+    if OriginalBody.bodies_lower then
+        ApplyItemToPed(ped, "bodies_lower", OriginalBody.bodies_lower, 1)
+    end
+
+    UpdatePedVariation(ped)
+    cb('ok')
+end)
+
+RegisterNuiCallback('closeClothingMenu', function(data, cb)
+    SetNuiFocus(false, false)
+    MenuOpen = false
+    EndScene()
+    
+    -- Pokud jsme neuložili (data.saved ~= true), vrátíme původní oblečení
+    if not data.saved then
+        if ClothesCache then
+            local ped = PlayerPedId()
+
+            -- 1. NEJDŘÍV SVLÉKNOUT VŠE, CO NENÍ V CACHE
+            -- Projdeme aktuální 'špinavé' PlayerClothes (to co máme na sobě z editoru)
+            for category, _ in pairs(PlayerClothes) do
+                -- Pokud tato kategorie nebyla v původní záloze, musíme ji sundat
+                if not ClothesCache[category] then
+                    RemoveTagFromMetaPed(category, ped)
+                end
+            end
+            
+            -- 2. OBNOVIT PŮVODNÍ STAV
+            DressDataToPed(ped, ClothesCache)
+            
+            -- 3. VRÁTIT PROMĚNNOU ZPĚT
+            -- Tady musíme opět udělat DeepCopy, aby se přerušila vazba, 
+            -- jinak by budoucí změny PlayerClothes měnily i ClothesCache
+            PlayerClothes = DeepCopy(ClothesCache)
+            
+            -- Aktualizace variací peda (pro jistotu)
+            UpdatePedVariation(ped)
+        end
+        notify("Změny byly zrušeny.")
+    end
+
+    CurrentItemContext = nil 
+    
+    cb('ok')
+end)
+
+-- 2. Callback pro ULOŽENÍ (Item nebo Postava)
+RegisterNuiCallback("saveClothes", function(data, cb)
+    local saveType = data.saveType -- 'item' nebo 'character'
+
+    if saveType == 'item' and CurrentItemContext then
+        -- A) Uložení do ITEMU
+        local itemName = CurrentItemContext.itemName
+        local itemId = CurrentItemContext.itemId
+
+        -- Vyfiltrujeme jen kategorie povolené pro tento item (z Configu)
+        local filteredData = FilterClothesForMapping(PlayerClothes, itemName)
+        
+        TriggerServerEvent("aprts_clothing:Server:saveClothesToItem", itemId, itemName, filteredData)
+        notify("Oblečení uloženo do itemu: " .. itemName)
+
+    elseif saveType == 'character' then
+        -- B) Uložení na POSTAVU (Databáze)
+        if data.CreatorMode then
+            dataReady = PlayerClothes
+        else
+            TriggerServerEvent("aprts_clothing:Server:saveClothes", PlayerClothes)
+        end
+        
+        -- Aktualizujeme Cache, protože toto je nyní náš "nový standard"
+        ClothesCache = PlayerClothes
+        notify("Postava byla uložena.")
+    end
+
+    -- Zavřeme menu s příznakem, že JSME uložili (aby se nevrátily staré hadry)
+    SetNuiFocus(false, false)
+    MenuOpen = false
+    EndScene()
+    CurrentItemContext = nil -- Vyčistit kontext
+
+    cb('ok')
+end)
+-- Rotace postavy (Levé tlačítko)
+RegisterNUICallback('rotateCharacter', function(data, cb)
+    local ped = PlayerPedId()
+    local heading = GetEntityHeading(ped)
+    
+    -- data.x je rozdíl v pohybu myši. Pokud hýbeme doleva, přičítáme, doprava odečítáme.
+    local newHeading = heading - (data.x * 0.5) 
+    
+    SetEntityHeading(ped, newHeading)
+    
+    -- Aktualizujeme i offset kamery, aby se kamera neotáčela s hráčem, ale zůstala "fixní" vůči světu,
+    -- nebo můžeme nechat kameru tak a jen točit pedem.
+    -- V tomto případě jen točíme pedem, kamera stojí.
+    
+    cb('ok')
+end)
+
+-- Výška kamery (Pravé tlačítko)
+RegisterNUICallback('moveCameraHeight', function(data, cb)
+    camHeight = camHeight - (data.y * 0.005)
+    if camHeight < limits.minHeight then
+        camHeight = limits.minHeight
+    end
+    if camHeight > limits.maxHeight then
+        camHeight = limits.maxHeight
+    end
+    UpdateCameraPosition()
+    cb('ok')
+end)
+
+-- Zoom kamery (Kolečko)
+RegisterNUICallback('zoomCamera', function(data, cb)
+    local step = 0.2
+    
+    if data.dir == "in" then
+        camDistance = camDistance - step
+    else
+        camDistance = camDistance + step
+    end
+    
+    if camDistance < limits.minDist then
+        camDistance = limits.minDist
+    end
+    if camDistance > limits.maxDist then
+        camDistance = limits.maxDist
+    end
+    
+    UpdateCameraPosition()
+    cb('ok')
+end)

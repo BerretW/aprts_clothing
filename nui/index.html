@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDR2 Clothing Menu</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <!-- Fonty -->
+    <link href="https://fonts.googleapis.com/css2?family=Rye&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="app" v-cloak>
+        <!-- Zobrazíme jen pokud je menu aktivní -->
+        <div v-if="isVisible" class="ui-wrapper">
+
+            <!-- LEVÉ MENU: TĚLO -->
+            <div class="panel body-panel" @mousedown.stop @wheel.stop>
+                <div class="panel-header">
+                    <h2>TĚLO & TVARY</h2>
+                </div>
+                
+                <div class="scroll-content">
+                    <div v-for="(state, cat) in bodyStates" :key="cat" class="control-group">
+                        <div class="label-row">
+                            <label>{{ formatBodyLabel(cat) }}</label>
+                            <span class="value-display">{{ state.index + 1 }} / {{ state.max }}</span>
+                        </div>
+                        <div class="slider-row">
+                            <button class="nav-arrow" @click="changeBodyItem(cat, -1)">❮</button>
+                            <input type="range" 
+                                   v-model.number="state.index" 
+                                   :max="state.max - 1" 
+                                   min="0" 
+                                   @input="updateBodyItem(cat)">
+                            <button class="nav-arrow" @click="changeBodyItem(cat, 1)">❯</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-footer">
+                    <button class="btn btn-secondary" @click="resetToNaked">SVLÉKNOUT</button>
+                    <button class="btn btn-primary" @click="refreshPed">OBNOVIT</button>
+                </div>
+            </div>
+
+            <!-- PRAVÉ MENU: OBLEČENÍ -->
+            <div class="panel clothing-panel" @mousedown.stop @wheel.stop>
+                <div class="panel-header">
+                    <h1>ŠATNÍK</h1>
+                    <button class="close-btn" v-if="!isCreatorMode" @click="closeMenu">✕</button>
+                </div>
+
+                <!-- Seznam kategorií -->
+                <div class="scroll-content category-list">
+                    <div v-for="(section, index) in menuData" :key="index">
+                        <div class="menu-header">{{ section.header }}</div>
+                        <div v-for="item in section.items" 
+                             :key="item.id"
+                             class="cat-btn"
+                             :class="{ active: currentCategory === item.id }"
+                             @click="selectCategory(item.id)">
+                            {{ item.label }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Editor Panel (Zobrazí se po výběru kategorie) -->
+                <div v-if="currentCategory" class="editor-section">
+                    <div class="editor-header">
+                        <h3>{{ currentCategoryLabel }}</h3>
+                    </div>
+                    
+                    <div class="controls-wrapper">
+                        <!-- MODEL -->
+                        <div class="control-group">
+                            <div class="label-row">
+                                <label>Model</label>
+                                <span class="value-display">{{ currentItemIndex + 1 }} / {{ currentItems.length }}</span>
+                            </div>
+                            <div class="slider-row">
+                                <button class="nav-arrow" @click="changeItem(-1)">❮</button>
+                                <input type="range" 
+                                       v-model.number="currentItemIndex" 
+                                       :max="maxItems" 
+                                       min="-1" 
+                                       :disabled="currentItems.length === 0"
+                                       @change="onItemChange">
+                                <button class="nav-arrow" @click="changeItem(1)">❯</button>
+                            </div>
+                        </div>
+
+                        <!-- VARIANTA -->
+                        <div class="control-group">
+                            <div class="label-row">
+                                <label>Varianta</label>
+                                <span class="value-display">{{ currentVarID }} / {{ maxVariants }}</span>
+                            </div>
+                            <div class="slider-row">
+                                <button class="nav-arrow" @click="changeVariant(-1)" :disabled="currentItemIndex === -1">❮</button>
+                                <input type="range" 
+                                       v-model.number="currentVarID" 
+                                       :max="maxVariants" 
+                                       min="1" 
+                                       :disabled="currentItemIndex === -1"
+                                       @change="onVariantChange">
+                                <button class="nav-arrow" @click="changeVariant(1)" :disabled="currentItemIndex === -1">❯</button>
+                            </div>
+                        </div>
+
+                        <!-- PALETA -->
+                        <div class="control-group">
+                            <label>Paleta Materiálu</label>
+                            <select v-model="selectedPalette" @change="applyPalette" class="rdr-select" :disabled="currentItemIndex === -1">
+                                <option v-for="(pal, index) in palettes" :value="index + 1">{{ formatPaletteName(pal) }}</option>
+                            </select>
+                        </div>
+
+                        <!-- TINTS -->
+                        <div class="tints-group">
+                            <label>Jemné Tónování</label>
+                            <div class="tint-sliders">
+                                <input type="range" class="tint-range" v-model.number="tints[0]" max="254" @input="applyTint" :disabled="currentItemIndex === -1">
+                                <input type="range" class="tint-range" v-model.number="tints[1]" max="254" @input="applyTint" :disabled="currentItemIndex === -1">
+                                <input type="range" class="tint-range" v-model.number="tints[2]" max="254" @input="applyTint" :disabled="currentItemIndex === -1">
+                            </div>
+                        </div>
+
+                        <!-- AKCE -->
+                        <div class="action-buttons">
+    <!-- Tlačítko Zrušit/Odložit (můžeš nechat removeItem, pokud chceš jen sundat item, 
+         ale pro zavření menu použij křížek nahoře nebo ESC) -->
+    <button class="btn btn-danger" @click="removeItem">Odložit</button>
+
+    <!-- Tlačítko pro uložení do ITEMU (jen pokud jsme v item módu) -->
+    <button v-if="isItemMode" class="btn btn-item-save" @click="saveClothes('item')">
+        Do Itemu
+    </button>
+
+    <!-- Tlačítko pro uložení na POSTAVU (vždy viditelné, nebo dle preference) -->
+    <button class="btn btn-confirm" @click="saveClothes('character')">
+        Uložit Postavu
+    </button>
+</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
