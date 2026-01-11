@@ -11,9 +11,11 @@ local limits = {
 RegisterNUICallback('getCatData', function(data, cb)
     local gender = data.gender
     local category = data.category
+    local ped = PlayerPedId()
     
+    -- Ochrana proti chybějícím datům
     if not Assets or not Assets[gender] then 
-        cb({ items = {}, currentIndex = -1, currentVar = 1 })
+        cb({ items = {}, currentIndex = -1, currentVar = 1, maxStates = 0, currentState = 1, maxClothingStates = 0, currentClothingState = 1 })
         return 
     end
 
@@ -21,19 +23,16 @@ RegisterNUICallback('getCatData', function(data, cb)
     
     local currentIndex = -1
     local currentVar = 1
-    
-    -- Defaultní hodnoty pro tinty a paletu
     local savedTints = {0, 0, 0} 
     local savedPaletteIndex = 1
 
+    -- === 1. NAČTENÍ ULOŽENÝCH DAT OBLEČENÍ ===
     if PlayerClothes[category] then
-        -- 1. Načtení indexu a varianty
         if PlayerClothes[category].index then
             currentIndex = PlayerClothes[category].index
             currentVar = PlayerClothes[category].varID or 1
         end
 
-        -- 2. Načtení Tintů
         if PlayerClothes[category].tint then
             savedTints = {
                 PlayerClothes[category].tint.tint0 or 0,
@@ -42,11 +41,9 @@ RegisterNUICallback('getCatData', function(data, cb)
             }
         end
 
-        -- 3. Načtení Palety (Musíme převést Hash zpět na Index v Configu)
         if PlayerClothes[category].palette then
             local currentHash = PlayerClothes[category].palette
             for i, palName in ipairs(Config.Palettes) do
-                -- Porovnáváme Hash (v DB) s Hashem názvu z Configu
                 if GetHashKey(palName) == currentHash or palName == currentHash then
                     savedPaletteIndex = i
                     break
@@ -55,13 +52,45 @@ RegisterNUICallback('getCatData', function(data, cb)
         end
     end
 
+    -- === 2. DATA PRO BODY STATES (LEVÝ PANEL) ===
+    -- Statické stavy definované v wearablestates.lua (pro tělo/kůži)
+    local maxStates = 0
+    local currentState = 1
+    if WearableStates and WearableStates[gender] and WearableStates[gender][category] then
+        maxStates = #WearableStates[gender][category]
+        if PlayerClothes[category] and PlayerClothes[category].state then
+            currentState = PlayerClothes[category].state
+        end
+    end
+
+    -- === 3. DATA PRO CLOTHING STATES (PRAVÝ PANEL) ===
+    -- Dynamické stavy zjištěné z itemu přes Native (pro konkrétní oblečení)
+    local maxClothingStates = 0
+    local currentClothingState = 1
+    
+    -- Funkce GetWearableCountForCategory musí být definovaná v functions.lua (viz předchozí kroky)
+    local count, _ = GetWearableCountForCategory(ped, category)
+    if count > 0 then
+        maxClothingStates = count
+        if PlayerClothes[category] and PlayerClothes[category].state then
+            currentClothingState = PlayerClothes[category].state
+        end
+    end
+
     cb({
         items = items,
         currentIndex = currentIndex,
         currentVar = currentVar,
-        -- Nová data pro UI
         savedTints = savedTints,
-        savedPalette = savedPaletteIndex
+        savedPalette = savedPaletteIndex,
+        
+        -- Levý panel (Body)
+        maxStates = maxStates,
+        currentState = currentState,
+
+        -- Pravý panel (Clothing)
+        maxClothingStates = maxClothingStates,
+        currentClothingState = currentClothingState
     })
 end)
 
@@ -72,8 +101,23 @@ RegisterNuiCallback("applyItem", function(data, cb)
     local varID = tonumber(data.varID)
 
     ApplyItemToPed(ped, cat, index, varID)
+    
+    -- Po aplikaci itemu zjistíme, kolik má variant nošení
+    local count, _ = GetWearableCountForCategory(ped, cat)
+    
+    -- Vrátíme objekt s počtem stavů
+    cb({ status = 'ok', maxClothingStates = count })
+end)
+
+RegisterNuiCallback("applyClothingState", function(data, cb)
+    local ped = PlayerPedId()
+    local cat = data.category
+    local stateIndex = tonumber(data.stateIndex)
+
+    ApplyClothingWearableState(ped, cat, stateIndex)
     cb('ok')
 end)
+
 
 RegisterNuiCallback("removeItem", function(data, cb)
     local ped = PlayerPedId()
@@ -258,5 +302,15 @@ RegisterNUICallback('zoomCamera', function(data, cb)
     end
     
     UpdateCameraPosition()
+    cb('ok')
+end)
+
+RegisterNUICallback("applyWearableState", function(data, cb)
+    local ped = PlayerPedId()
+    local cat = data.category
+    local stateIndex = tonumber(data.stateIndex)
+
+    -- Volá funkci definovanou v client/functions.lua (viz předchozí krok)
+    ApplyWearableState(ped, cat, stateIndex)
     cb('ok')
 end)

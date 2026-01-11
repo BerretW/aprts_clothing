@@ -405,3 +405,133 @@ function FilterClothesForMapping(fullClothes, itemName)
 
     return filteredData
 end
+
+-- === WEARABLE STATES INTEGRATION ===
+
+function UpdateShopItemWearableState(ped, shopItemHash, wearableStateHash, isMultiplayer)
+    Citizen.InvokeNative(0x66B957AAC2EAAEAB, ped, shopItemHash, wearableStateHash, 0, isMultiplayer, 1)
+end
+
+function FixPedVariation(ped)
+    Citizen.InvokeNative(0x704C908E9C405136, ped) -- _UPDATE_PED_VARIATION
+    Citizen.InvokeNative(0xAAB86462966168CE, ped, true) -- Fixes outfit
+    Citizen.InvokeNative(0xCC8CA3E88256E58F, ped, false, true, true, true, false)
+    while not NativeHasPedComponentLoaded(ped) do
+        Wait(1)
+    end
+end
+
+-- Aplikuje stav (např. vyhrnuté rukávy) na kategorii
+function ApplyWearableState(ped, category, stateIndex)
+    local gender = "male"
+    if not IsPedMale(ped) then gender = "female" end
+
+    -- Kontrola existence definicí
+    if not WearableStates or not WearableStates[gender] or not WearableStates[gender][category] then
+        return
+    end
+
+    -- Získání názvu stavu (např. "SHIRT_ROLLED_SLEEVE")
+    local statesList = WearableStates[gender][category]
+    if stateIndex < 1 then stateIndex = 1 end
+    if stateIndex > #statesList then stateIndex = #statesList end
+
+    local stateName = statesList[stateIndex]
+    local stateHash = joaat(stateName)
+
+    -- Získání hashe aktuálního oblečení v dané kategorii
+    -- Musíme zjistit, co má hráč na sobě. Buď z PlayerClothes, nebo z peda.
+    local itemHash = nil
+    
+    if PlayerClothes[category] and PlayerClothes[category].drawable then
+         itemHash = PlayerClothes[category].drawable
+    else
+        -- Fallback: Zkusíme vytáhnout data přímo z peda
+        local currentData = GetMetaPedData(category, ped)
+        if currentData then
+            itemHash = currentData.drawable
+        end
+    end
+
+    if itemHash then
+        UpdateShopItemWearableState(ped, itemHash, stateHash, true)
+        FixPedVariation(ped)
+        
+        -- Uložíme stav do PlayerClothes, abychom ho neztratili
+        if not PlayerClothes[category] then PlayerClothes[category] = {} end
+        PlayerClothes[category].state = stateIndex
+        
+        print("Wearable State Applied:", category, stateName, stateIndex)
+    end
+end
+
+-- Upravená funkce pro aplikaci uložených dat (aby se aplikovaly i stavy při načtení)
+-- NAHRADIT stávající funkci DressDataToPed touto upravenou verzí:
+function DressDataToPed(ped, data)
+    for cat, catData in pairs(data) do
+        -- 1. Aplikace modelu a textury
+        ApplyDataToPed(ped, catData)
+        
+        -- 2. Aplikace stavu (pokud existuje)
+        if catData.state then
+            -- Malá prodleva, aby se načetl model, než změníme stav
+            Citizen.CreateThread(function()
+                Wait(50) 
+                ApplyWearableState(ped, cat, catData.state)
+            end)
+        end
+    end
+end
+
+
+-- === DYNAMICKÉ WEARABLE STATES PRO OBLEČENÍ ===
+
+-- 1. Zjistit počet možností (Native od tebe)
+function GetShopItemNumWearableStates(shopItemHash, isFemale, isMultiplayer)
+    return Citizen.InvokeNative(0x98E2F23C9F9D6708, shopItemHash, isFemale, isMultiplayer, Citizen.ResultAsInteger())
+end
+
+-- 2. Získat hash stavu (Native od tebe)
+function GetShopItemWearableStateByIndex(shopItemHash, index, isFemale, isMultiplayer)
+    return Citizen.InvokeNative(0x9486E78CA3211728, shopItemHash, index, isFemale, isMultiplayer) -- Návratová hodnota je Hash
+end
+
+-- 3. Pomocná funkce pro získání počtu stavů pro aktuální item v kategorii
+function GetWearableCountForCategory(ped, category)
+    local currentData = GetMetaPedData(category, ped)
+    if not currentData or not currentData.drawable then return 0 end
+    
+    local isFemale = not IsPedMale(ped)
+    local count = GetShopItemNumWearableStates(currentData.drawable, isFemale, true)
+    return count, currentData.drawable
+end
+
+-- 4. Funkce pro aplikaci stavu na konkrétní item
+function ApplyClothingWearableState(ped, category, stateIndex)
+    local isFemale = not IsPedMale(ped)
+    
+    -- Získáme aktuální item v dané kategorii
+    local currentData = GetMetaPedData(category, ped)
+    if not currentData or not currentData.drawable then return end
+    
+    local itemHash = currentData.drawable
+    
+    -- Ošetření indexu (UI posílá 1-based, native chce 0-based)
+    local nativeIndex = stateIndex - 1 
+    if nativeIndex < 0 then nativeIndex = 0 end
+
+    -- Získáme hash stavu
+    local stateHash = GetShopItemWearableStateByIndex(itemHash, nativeIndex, isFemale, true)
+    
+    if stateHash then
+        -- Aplikace
+        UpdateShopItemWearableState(ped, itemHash, stateHash, true)
+        FixPedVariation(ped) -- Funkce z předchozího kroku (nebo NativeUpdatePedVariation)
+        
+        -- Uložíme do PlayerClothes
+        if not PlayerClothes[category] then PlayerClothes[category] = {} end
+        PlayerClothes[category].state = stateIndex -- Ukládáme 1-based pro konzistenci
+        
+        print("Applied clothing state:", category, stateIndex, stateHash)
+    end
+end

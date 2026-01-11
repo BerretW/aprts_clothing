@@ -82,3 +82,9 @@ end, false  )
 RegisterCommand("openClothingMenu", function(source, args, rawCommand)
 OpenMenu(Config.ClothingMenu,false)
 end, false)
+
+RegisterCommand("wearable", function(source, args, rawCommand)
+    -- Otevře menu, ale řekne UI, že má být v "WearableMode"
+    -- K tomu musíme upravit OpenMenu funkci, viz další krok.
+    OpenMenu(Config.ClothingMenu, false, true) -- Třetí parametr = isWearableOnly
+end, false)
