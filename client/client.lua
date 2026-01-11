@@ -4,6 +4,7 @@
 PlayerClothes = {}
 ClothesCache = {}
 dataReady = false
+OriginalBody = {} -- <== PŘIDAT TOTO
 Progressbar = exports["vorp_progressbar"]:initiate()
 playingAnimation = false
 function debugPrint(msg)

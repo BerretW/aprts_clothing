@@ -24,6 +24,10 @@ Config.EssentialsCategories =
         "beards_complete"
     }
 
+Config.BodyCategories = {
+    "bodies_upper", "bodies_lower"
+}
+
 Config.ClothingMenu = {
     ["Torso"] = {
         "vests", "cloaks", "shirts_full", "dresses", "satchels", "armor", "outfits", "ponchos","coats_closed","coats_heavy"

@@ -83,18 +83,29 @@ RegisterCommand("openClothingMenu", function(source, args, rawCommand)
     SetNuiFocus(true, true)
     MenuOpen = true
     
+    local ped = PlayerPedId()
     local gender = "male"
-    if not IsPedMale(PlayerPedId()) then
+    if not IsPedMale(ped) then
         gender  = "female"
     end
+
+    -- === OPRAVENO: Získáváme INDEX (číslo) místo tabulky ===
+    OriginalBody = {
+        bodies_upper = GetIndexFromMeta("bodies_upper", ped),
+        bodies_lower = GetIndexFromMeta("bodies_lower", ped),
+    }
     
-    -- Zde posíláme Config.ClothingMenu. Můžeš sem poslat jakoukoliv jinou tabulku se stejnou strukturou.
+    -- Pro jistotu si to i zalogujeme do konzole (F8), abys viděl, co se načetlo
+    print("Načteno původní tělo - Upper: " .. tostring(OriginalBody.bodies_upper) .. ", Lower: " .. tostring(OriginalBody.bodies_lower))
+    -- ==========================================================
+    
     local menuData = GetStructuredMenu(Config.ClothingMenu)
     
     SendNUIMessage({
         action = "openClothingMenu",
-        menuData = menuData, -- Posíláme novou strukturu
+        menuData = menuData, 
         gender = gender,
+        bodyCategories = Config.BodyCategories,
         creatorMode = false
     })
 end, false)

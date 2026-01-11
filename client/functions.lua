@@ -320,7 +320,14 @@ function GetStructuredMenu(menuDefinition)
         for _, cat in ipairs(categories) do
             -- Zkontrolujeme, zda kategorie existuje v Assets pro dané pohlaví a zda má položky
             if Assets[gender] and Assets[gender][cat] and #Assets[gender][cat] > 0 then
-                table.insert(validCategories, cat)
+                -- ZDE JE ZMĚNA: Hledáme překlad v TranslateCat, pokud není, použijeme surový název
+                local labelName = TranslateCat[cat] or cat 
+                
+                -- Vkládáme objekt místo pouhého stringu
+                table.insert(validCategories, {
+                    id = cat,
+                    label = labelName
+                })
             end
         end
         
@@ -333,8 +340,45 @@ function GetStructuredMenu(menuDefinition)
         end
     end
 
-    -- Seřadíme sekce abecedně (volitelné, protože pairs v Lua je náhodné)
+    -- Seřadíme sekce abecedně
     table.sort(structuredList, function(a, b) return a.header < b.header end)
 
     return structuredList
+end
+
+function GetIndexFromMeta(category, ped)
+    local playerPed = ped or PlayerPedId()
+    local gender = "male"
+    if not IsPedMale(playerPed) then
+        gender = "female"
+    end
+
+    -- 1. Získáme aktuální data z peda (Hash, textury...)
+    local currentData = GetMetaPedData(category, playerPed)
+    
+    -- Pokud data nemáme, vrátíme 1 (default)
+    if not currentData or not Assets[gender] or not Assets[gender][category] then
+        return 1
+    end
+
+    -- 2. Projdeme seznam v Assets a hledáme shodu
+    local assetsList = Assets[gender][category]
+    
+    for index, item in ipairs(assetsList) do
+        -- Porovnáváme hash modelu (drawable)
+        -- Některé itemy mají strukturu {drawable=...}, jiné přímo hash.
+        
+        if item.drawable and item.drawable == currentData.drawable then
+            return index
+        elseif item.hash and item.hash == currentData.drawable then
+            return index
+        end
+        
+        -- Fallback pro přímé porovnání (někdy v Assets jsou jen čísla/hashe)
+        if item == currentData.drawable then
+            return index
+        end
+    end
+
+    return 1 -- Pokud nenajdeme shodu, vrátíme 1
 end

@@ -223,3 +223,61 @@ input[type=range] {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #1a1a1a; }
 ::-webkit-scrollbar-thumb { background: #8a0000; border-radius: 3px; }
+
+/* Levé fixní menu */
+.body-container {
+    position: absolute;
+    top: 50px;
+    left: 50px;
+    width: 280px;
+    background: radial-gradient(circle, rgba(20,20,20,0.96) 0%, rgba(10,10,10,0.92) 100%);
+    border: 2px solid #5c5c5c;
+    border-radius: 5px;
+    padding: 10px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: #e0e0e0;
+}
+
+.header-small {
+    border-bottom: 2px solid #8a0000;
+    padding-bottom: 5px;
+    margin-bottom: 5px;
+    text-align: center;
+}
+
+.header-small h2 {
+    font-family: 'Rye', serif;
+    font-size: 18px;
+    margin: 0;
+    color: #d4af37;
+    text-shadow: 1px 1px 0 #000;
+}
+
+/* Řádek ovládání těla */
+.body-row {
+    margin-bottom: 10px;
+}
+
+.body-row label {
+    font-size: 12px;
+    color: #aaa;
+    display: block;
+    margin-bottom: 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* Tlačítka dole */
+.body-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+    border-top: 1px solid #333;
+    padding-top: 10px;
+}
+
+.btn-reset { background: #8a4400; border: 1px solid #b85c00; }
+.btn-refresh { background: #333; border: 1px solid #555; }

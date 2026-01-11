@@ -9,7 +9,25 @@ end)
 RegisterNUICallback('getCatData', function(data, cb)
     local gender = data.gender
     local category = data.category
-    cb(Assets[gender][category])
+    
+    -- Získáme seznam itemů
+    local items = Assets[gender][category]
+    
+    -- Zjistíme, co má hráč aktuálně na sobě v této kategorii
+    local currentIndex = -1
+    local currentVar = 1
+    
+    if PlayerClothes[category] and PlayerClothes[category].index then
+        currentIndex = PlayerClothes[category].index
+        currentVar = PlayerClothes[category].varID or 1
+    end
+
+    -- Pošleme zpět objekt s daty i aktuálním stavem
+    cb({
+        items = items,
+        currentIndex = currentIndex,
+        currentVar = currentVar
+    })
 end)
 
 RegisterNuiCallback("applyItem", function(data, cb)
@@ -50,6 +68,31 @@ end)
 
 RegisterNuiCallback("refresh", function(data, cb)
     RefreshShopItems(PlayerPedId())
+    cb('ok')
+end)
+
+
+RegisterNuiCallback("resetToNaked", function(data, cb)
+    local ped = PlayerPedId()
+    
+    -- 1. Odstranit veškeré oblečení (kromě těla a hlavy)
+    for cat, _ in pairs(PlayerClothes) do
+        -- Vynecháme tělo (to budeme řešit níže) a obličejové prvky
+        if cat ~= "bodies_upper" and cat ~= "bodies_lower" and cat ~= "heads" and cat ~= "eyes" and cat ~= "teeth" then
+             RemoveTagFromMetaPed(cat, ped)
+        end
+    end
+
+    -- 2. Obnovit původní tělo (to, se kterým hráč přišel)
+    if OriginalBody.bodies_upper then
+        ApplyItemToPed(ped, "bodies_upper", OriginalBody.bodies_upper, 1)
+    end
+    
+    if OriginalBody.bodies_lower then
+        ApplyItemToPed(ped, "bodies_lower", OriginalBody.bodies_lower, 1)
+    end
+
+    UpdatePedVariation(ped)
     cb('ok')
 end)
 
