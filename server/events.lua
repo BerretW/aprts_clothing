@@ -183,3 +183,42 @@ AddEventHandler("aprts_clothing:Server:createItemFromCurrentClothes", function(i
         notify(_source, "Nemáš místo v inventáři!")
     end
 end)
+
+
+RegisterServerEvent("aprts_clothing:Server:processPurchase")
+AddEventHandler("aprts_clothing:Server:processPurchase", function(basket, totalPrice)
+    local _source = source
+    local user = Core.getUser(_source)
+    if not user then return end
+    local Character = user.getUsedCharacter
+    
+    -- ZÁKLAD NACENĚNÍ (Kontrola peněz)
+    local currentMoney = Character.money
+    
+    if currentMoney < totalPrice then
+        notify(_source, "Nemáš dostatek peněz! Cena: $" .. totalPrice)
+        return
+    end
+
+    -- Odečtení peněz
+    Character.removeCurrency(0, totalPrice) -- 0 = money, 1 = gold
+    notify(_source, "Zaplaceno: $" .. totalPrice)
+
+    -- Rozdání itemů
+    for itemType, info in pairs(basket) do
+        local metadata = {
+            description = info.name .. " (Cena: $".. info.price ..")",
+            label = info.name,
+            clothingData = info.data
+        }
+        
+        local canCarry = exports.vorp_inventory:canCarryItem(_source, itemType, 1)
+        if canCarry then
+            exports.vorp_inventory:addItem(_source, itemType, 1, metadata)
+            -- notify(_source, "Obdržel jsi oblečení.")
+        else
+            notify(_source, "Plný inventář! Item " .. itemType .. " nebyl předán.")
+            -- Tady bys ideálně měl vrátit peníze za tento item
+        end
+    end
+end)

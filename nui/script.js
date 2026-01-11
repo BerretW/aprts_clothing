@@ -4,7 +4,6 @@ createApp({
     setup() {
         const isVisible = ref(false);
         const isCreatorMode = ref(false);
-        const isItemMode = ref(false);
         const gender = ref('male');
         
         // Data menu
@@ -21,9 +20,7 @@ createApp({
         const selectedPalette = ref(1);
         const tints = reactive([0, 0, 0]);
 
-        // Nové proměnné pro tvorbu itemu
-        const availableItemTypes = ref([]);
-        const selectedItemType = ref("");
+        // Input pro název itemu/outfitu
         const newOutfitName = ref("");
 
         // Palety (konstanty)
@@ -90,36 +87,17 @@ createApp({
             return pal.replace('metaped_tint_', '').replace(/_/g, ' ');
         };
 
-        const formatItemType = (type) => {
-            const labels = {
-                "clothing_hat": "Klobouk / Hlava",
-                "clothing_torso": "Trup / Kabát",
-                "clothing_bottom": "Kalhoty / Boty",
-                "clothing_access": "Doplňky",
-                "clothing_all": "KOMPLETNÍ OUTFIT"
-            };
-            return labels[type] || type;
-        };
-
-        // === CREATE NEW ITEM LOGIC ===
-        const createNewItem = () => {
-            if (newOutfitName.value.trim() === "") {
-                console.log("Název outfitu nesmí být prázdný");
-                return; 
-            }
-            if (selectedItemType.value === "") {
-                console.log("Musíš vybrat typ itemu");
-                return;
-            }
-
-            postData('createOutletItem', { 
-                name: newOutfitName.value,
-                itemType: selectedItemType.value,
-                saved: true 
+        // === NOVÁ LOGIKA NÁKUPU ===
+        const purchaseItems = () => {
+            // Odešleme název a požadavek na nákup. 
+            // Lua script na straně klienta porovná změny a pošle košík na server.
+            postData('purchaseItems', { 
+                name: newOutfitName.value.trim() !== "" ? newOutfitName.value : "Oblečení"
             });
             
-            // Zavřít menu
-            isVisible.value = false;
+            // Poznámka: Zavření menu řešíme až v Lua callbacku nebo 
+            // můžeme zde, pokud chceme okamžitou odezvu.
+            // Pro jistotu zde necháme logiku na Lua (uzavře NUI po úspěšném zpracování).
         };
 
         // === BODY LOGIC ===
@@ -314,19 +292,11 @@ createApp({
                     gender.value = data.gender;
                     isCreatorMode.value = data.creatorMode;
                     menuData.value = data.menuData;
-                    isItemMode.value = data.isItemMode || false;
                     
-                    // Načtení seznamu itemů pro vytváření
-                    availableItemTypes.value = data.availableItemTypes || [];
+                    // Reset inputu
                     newOutfitName.value = "";
                     
                     // Default selection
-                    if (availableItemTypes.value.length > 0) {
-                        selectedItemType.value = availableItemTypes.value.includes("clothing_all") 
-                            ? "clothing_all" 
-                            : availableItemTypes.value[0];
-                    }
-
                     currentCategory.value = null;
                     
                     if (data.bodyCategories) {
@@ -347,14 +317,16 @@ createApp({
         });
 
         return {
-            isVisible, isCreatorMode, isItemMode,
+            isVisible, isCreatorMode,
             menuData, bodyStates,
             currentCategory, currentCategoryLabel,
             currentItems, currentItemIndex, currentVarID,
             maxItems, maxVariants,
             palettes, selectedPalette, tints,
-            // New Item creation vars
-            availableItemTypes, selectedItemType, newOutfitName, formatItemType, createNewItem,
+            
+            // New logic
+            newOutfitName, purchaseItems,
+
             // Methods
             closeMenu, selectCategory, formatBodyLabel, formatPaletteName,
             changeBodyItem, updateBodyItem,

@@ -32,7 +32,14 @@ AddEventHandler('aprts_clothing:Client:receivePlayerClothes', function(clothes)
     print("Oblečení načteno ze serveru.")
     PlayerClothes = clothes or {}
     ClothesCache = clothes or {}
+    
+    -- Tady použijeme novou funkci, která řadí kategorie
     DressDataToPed(PlayerPedId(), PlayerClothes)
+    
+    -- Pro jistotu po krátké prodlevě (fixuje načítání textur při loginu)
+    Citizen.SetTimeout(1000, function()
+        FixClothes(PlayerPedId())
+    end)
 end)
 
 -- Item Eventy

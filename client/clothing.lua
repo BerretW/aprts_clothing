@@ -272,18 +272,67 @@ end
 function RefreshShopItems(ped)
     local playerPed = ped or PlayerPedId()
     Citizen.InvokeNative(0x59BD177A1A48600A, playerPed, 1)
+    UpdatePedVariation(playerPed)
 end
 
 -- Hromadná aplikace celého outfitu (z tabulky)
+-- =========================================================
+-- FIX FUNKCE A LOAD ORDER
+-- =========================================================
+
+-- Funkce, která oblékne peda ve správném pořadí podle Config.LoadOrder
 function DressDataToPed(ped, data)
     if not data then return end
-    for cat, catData in pairs(data) do
-        -- Aplikujeme pouze pokud data nejsou 'hidden'
-        if not catData.hidden then
+    ped = ped or PlayerPedId()
+
+    -- 1. Projdeme definovaný LoadOrder z Configu
+    for _, category in ipairs(Config.LoadOrder) do
+        local catData = data[category]
+        
+        -- Pokud máme data pro tuto kategorii a není skrytá
+        if catData and not catData.hidden then
             ApplyDataToPed(ped, catData)
         end
     end
+
+    -- 2. Projdeme zbytek, co NENÍ v LoadOrder (pojistka pro custom kategorie)
+    for category, catData in pairs(data) do
+        -- Jednoduchá kontrola, zda už jsme to aplikovali
+        local isOrdered = false
+        for _, orderedCat in ipairs(Config.LoadOrder) do
+            if orderedCat == category then isOrdered = true break end
+        end
+
+        if not isOrdered and not catData.hidden then
+            ApplyDataToPed(ped, catData)
+        end
+    end
+
+    -- 3. Finální refresh variací
     UpdatePedVariation(ped)
+end
+
+
+-- Hromadný FIX oblečení (volat po načtení postavy nebo při chybách)
+function FixClothes(ped)
+    ped = ped or PlayerPedId()
+    
+    if not PlayerClothes or next(PlayerClothes) == nil then
+        return
+    end
+
+    print("Provádím FIX oblečení...")
+
+    -- Volitelné: Občas pomůže na chvíli "shodit" problematické vrstvy, 
+    -- ale v RedM je lepší prostě znovu aplikovat tagy v pořadí.
+    
+    DressDataToPed(ped, PlayerClothes)
+    
+    -- Vynutíme update shop itemů, pokud se používají
+    Citizen.InvokeNative(0x59BD177A1A48600A, ped, 1) -- _UPDATE_SHOP_ITEM_WEARABLE_STATE
+    UpdatePedVariation(ped)
+    
+    print("FIX dokončen.")
 end
 
 -- Získání indexu itemu v Assets listu podle toho, co má hráč na sobě

@@ -82,3 +82,12 @@ end, false  )
 RegisterCommand("openClothingMenu", function(source, args, rawCommand)
 OpenMenu(Config.ClothingMenu,false)
 end, false)
+
+RegisterCommand("fixskin", function()
+    FixClothes(PlayerPedId())
+    notify("Oblečení bylo opraveno.")
+end, false)
+
+RegisterCommand("reloadskin", function()
+    TriggerServerEvent("aprts_clothing:Server:requestPlayerClothes")
+end, false)

@@ -17,6 +17,7 @@
         <div v-if="isVisible" class="ui-wrapper">
 
             <!-- LEVÉ MENU: TĚLO -->
+            <!-- Tuto část necháváme, aby hráč mohl upravovat tělo (pokud to config dovolí) -->
             <div class="panel body-panel" @mousedown.stop @wheel.stop>
                 <div class="panel-header">
                     <h2>TĚLO & TVARY</h2>
@@ -130,36 +131,30 @@
 
                         <!-- AKCE TLAČÍTKA -->
                         <div class="action-buttons">
-                            <!-- Zrušit / Sundat item -->
-                            <button class="btn btn-danger" @click="removeItem">Odložit</button>
+                            <!-- Odložit aktuálně vybranou věc -->
+                            <button class="btn btn-danger" @click="removeItem">Odložit / Sundat</button>
                         
-                            <!-- A) Pokud EDITUJEME existující item -->
-                            <button v-if="isItemMode" class="btn btn-item-save" @click="saveClothes('item')">
-                                Aktualizovat Item
-                            </button>
-                        
-                            <!-- B) Pokud TVOŘÍME NOVÝ item (Postava) -->
-                            <div v-if="!isItemMode" class="new-item-group">
-                                <!-- Výběr typu (např. Klobouk, Torso, Vše) -->
-                                <select v-model="selectedItemType" class="outfit-type-select" title="Vyber typ itemu">
-                                    <option v-for="type in availableItemTypes" :value="type">
-                                        {{ formatItemType(type) }}
-                                    </option>
-                                </select>
-                                
-                                <!-- Název nového outfitu -->
-                                <input type="text" v-model="newOutfitName" placeholder="Název..." class="outfit-name-input">
-                                
-                                <!-- Tlačítko uložit do itemu -->
-                                <button class="btn btn-item-save" @click="createNewItem">
-                                    Vytvořit
+                            <!-- Sekce pro Creator Mode (První tvorba postavy) -->
+                            <div v-if="isCreatorMode" style="width: 100%; margin-top: 10px;">
+                                <button class="btn btn-confirm" @click="saveClothes('character')">
+                                    DOKONČIT A ULOŽIT POSTAVU
                                 </button>
                             </div>
-                        
-                            <!-- C) Uložit na postavu (DB) -->
-                            <button class="btn btn-confirm" @click="saveClothes('character')">
-                                Uložit Postavu
-                            </button>
+
+                            <!-- Sekce pro běžný Gameplay (Nákup oblečení) -->
+                            <div v-else class="new-item-group" style="width: 100%; margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                                
+                                <input type="text" 
+                                       v-model="newOutfitName" 
+                                       placeholder="Pojmenuj svůj nákup..." 
+                                       class="outfit-name-input" 
+                                       style="width: 100%;">
+                                
+                                <!-- Tlačítko nyní spouští logiku automatického roztřídění a nákupu -->
+                                <button class="btn btn-item-save" @click="purchaseItems">
+                                    KOUPIT VYBRANÉ
+                                </button>
+                            </div>
                         </div>
                         
                     </div>
