@@ -128,22 +128,40 @@
                             </div>
                         </div>
 
-                        <!-- AKCE -->
+                        <!-- AKCE TLAČÍTKA -->
                         <div class="action-buttons">
-    <!-- Tlačítko Zrušit/Odložit (můžeš nechat removeItem, pokud chceš jen sundat item, 
-         ale pro zavření menu použij křížek nahoře nebo ESC) -->
-    <button class="btn btn-danger" @click="removeItem">Odložit</button>
-
-    <!-- Tlačítko pro uložení do ITEMU (jen pokud jsme v item módu) -->
-    <button v-if="isItemMode" class="btn btn-item-save" @click="saveClothes('item')">
-        Do Itemu
-    </button>
-
-    <!-- Tlačítko pro uložení na POSTAVU (vždy viditelné, nebo dle preference) -->
-    <button class="btn btn-confirm" @click="saveClothes('character')">
-        Uložit Postavu
-    </button>
-</div>
+                            <!-- Zrušit / Sundat item -->
+                            <button class="btn btn-danger" @click="removeItem">Odložit</button>
+                        
+                            <!-- A) Pokud EDITUJEME existující item -->
+                            <button v-if="isItemMode" class="btn btn-item-save" @click="saveClothes('item')">
+                                Aktualizovat Item
+                            </button>
+                        
+                            <!-- B) Pokud TVOŘÍME NOVÝ item (Postava) -->
+                            <div v-if="!isItemMode" class="new-item-group">
+                                <!-- Výběr typu (např. Klobouk, Torso, Vše) -->
+                                <select v-model="selectedItemType" class="outfit-type-select" title="Vyber typ itemu">
+                                    <option v-for="type in availableItemTypes" :value="type">
+                                        {{ formatItemType(type) }}
+                                    </option>
+                                </select>
+                                
+                                <!-- Název nového outfitu -->
+                                <input type="text" v-model="newOutfitName" placeholder="Název..." class="outfit-name-input">
+                                
+                                <!-- Tlačítko uložit do itemu -->
+                                <button class="btn btn-item-save" @click="createNewItem">
+                                    Vytvořit
+                                </button>
+                            </div>
+                        
+                            <!-- C) Uložit na postavu (DB) -->
+                            <button class="btn btn-confirm" @click="saveClothes('character')">
+                                Uložit Postavu
+                            </button>
+                        </div>
+                        
                     </div>
                 </div>
             </div>

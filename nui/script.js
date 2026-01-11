@@ -4,7 +4,7 @@ createApp({
     setup() {
         const isVisible = ref(false);
         const isCreatorMode = ref(false);
-        const isItemMode = ref(false); // Nové: Indikuje, zda editujeme item
+        const isItemMode = ref(false);
         const gender = ref('male');
         
         // Data menu
@@ -12,14 +12,19 @@ createApp({
         const currentCategory = ref(null);
         
         // Data pro tělo (levý panel)
-        const bodyStates = reactive({}); // { "bodies_upper": { index: 0, max: 10, items: [] } }
+        const bodyStates = reactive({}); 
 
         // Data pro vybranou kategorii (pravý panel)
         const currentItems = ref([]);
-        const currentItemIndex = ref(-1); // -1 = Nic/Svlečeno
+        const currentItemIndex = ref(-1);
         const currentVarID = ref(1);
         const selectedPalette = ref(1);
         const tints = reactive([0, 0, 0]);
+
+        // Nové proměnné pro tvorbu itemu
+        const availableItemTypes = ref([]);
+        const selectedItemType = ref("");
+        const newOutfitName = ref("");
 
         // Palety (konstanty)
         const palettes = [
@@ -53,7 +58,6 @@ createApp({
 
         const currentCategoryLabel = computed(() => {
             if (!currentCategory.value) return "KATEGORIE";
-            // Najít label v menuData
             for (const section of menuData.value) {
                 const found = section.items.find(i => i.id === currentCategory.value);
                 if (found) return found.label;
@@ -86,14 +90,44 @@ createApp({
             return pal.replace('metaped_tint_', '').replace(/_/g, ' ');
         };
 
+        const formatItemType = (type) => {
+            const labels = {
+                "clothing_hat": "Klobouk / Hlava",
+                "clothing_torso": "Trup / Kabát",
+                "clothing_bottom": "Kalhoty / Boty",
+                "clothing_access": "Doplňky",
+                "clothing_all": "KOMPLETNÍ OUTFIT"
+            };
+            return labels[type] || type;
+        };
+
+        // === CREATE NEW ITEM LOGIC ===
+        const createNewItem = () => {
+            if (newOutfitName.value.trim() === "") {
+                console.log("Název outfitu nesmí být prázdný");
+                return; 
+            }
+            if (selectedItemType.value === "") {
+                console.log("Musíš vybrat typ itemu");
+                return;
+            }
+
+            postData('createOutletItem', { 
+                name: newOutfitName.value,
+                itemType: selectedItemType.value,
+                saved: true 
+            });
+            
+            // Zavřít menu
+            isVisible.value = false;
+        };
+
         // === BODY LOGIC ===
         const initBodyMenu = (categories) => {
             categories.forEach(async (cat) => {
                 const data = await postData('getCatData', { gender: gender.value, category: cat });
                 if (data) {
                     const items = data.items || [];
-                    
-                    // OPRAVA: Lua (1-based) -> JS (0-based)
                     let currentIdx = (data.currentIndex !== undefined && data.currentIndex !== -1) ? data.currentIndex : 1;
                     currentIdx = currentIdx - 1;
 
@@ -122,23 +156,18 @@ createApp({
 
         const updateBodyItem = (cat) => {
             const state = bodyStates[cat];
-            // Odeslání do LUA (přičítáme 1 pro Lua)
             postData('applyItem', { category: cat, index: state.index + 1, varID: 1 });
         };
 
         // === CLOTHING LOGIC ===
-        
         const selectCategory = async (catId) => {
             currentCategory.value = catId;
-            
-            // Reset filtrů na default (pro jistotu, kdyby data nepřišla)
             tints[0] = 0; tints[1] = 0; tints[2] = 0;
             selectedPalette.value = 1;
 
             const data = await postData('getCatData', { gender: gender.value, category: catId });
             
             if (Array.isArray(data)) {
-                // Fallback pro starý formát odpovědi
                 currentItems.value = data;
                 onItemChange(); 
             } else {
@@ -147,17 +176,13 @@ createApp({
                 const savedVar = data.currentVar;
 
                 if (savedIndex !== undefined && savedIndex !== -1) {
-                    // OPRAVA: Lua (1-based) -> JS (0-based)
                     currentItemIndex.value = savedIndex - 1;
                     currentVarID.value = savedVar || 1;
                 } else {
-                    currentItemIndex.value = -1; // Nic
+                    currentItemIndex.value = -1;
                 }
 
-                // Aplikace uložených barev ze serveru
-                if (data.savedPalette) {
-                    selectedPalette.value = data.savedPalette;
-                }
+                if (data.savedPalette) selectedPalette.value = data.savedPalette;
                 
                 if (data.savedTints && Array.isArray(data.savedTints)) {
                     tints[0] = data.savedTints[0];
@@ -171,35 +196,28 @@ createApp({
             if (currentItems.value.length === 0) return;
             
             let newIndex = currentItemIndex.value + dir;
-            // Cyklování včetně -1 (nic)
             if (newIndex < -1) newIndex = currentItems.value.length - 1;
             else if (newIndex >= currentItems.value.length) newIndex = -1;
 
             currentItemIndex.value = newIndex;
-            // Při změně itemu resetovat variantu
             currentVarID.value = 1;
             onItemChange();
         };
 
         const onItemChange = () => {
             if (currentItemIndex.value === -1) {
-                // Remove item
                 postData('removeItem', { category: currentCategory.value });
             } else {
-                // Apply item
                 sendApplyItem();
             }
         };
 
         const changeVariant = (dir) => {
             if (currentItemIndex.value === -1) return;
-            
             let max = maxVariants.value;
             let newVal = currentVarID.value + dir;
-            
             if (newVal < 1) newVal = max;
             if (newVal > max) newVal = 1;
-            
             currentVarID.value = newVal;
             onVariantChange();
         };
@@ -211,7 +229,7 @@ createApp({
         const sendApplyItem = () => {
             postData('applyItem', {
                 category: currentCategory.value,
-                index: currentItemIndex.value + 1, // +1 pro Lua
+                index: currentItemIndex.value + 1,
                 varID: currentVarID.value
             });
         };
@@ -232,41 +250,31 @@ createApp({
             onItemChange();
         };
 
-        // === GLOBAL ACTIONS ===
         const resetToNaked = () => {
             postData('resetToNaked', {}).then(() => {
-                initBodyMenu(Object.keys(bodyStates)); // Reload body
-                if(currentCategory.value) selectCategory(currentCategory.value); // Reload cat
+                initBodyMenu(Object.keys(bodyStates));
+                if(currentCategory.value) selectCategory(currentCategory.value);
             });
         };
 
         const refreshPed = () => postData('refresh', {});
 
-        /**
-         * Uložení oblečení.
-         * @param {string} type - 'item' nebo 'character'
-         */
         const saveClothes = (type) => {
             postData('saveClothes', { 
                 saveType: type,
                 CreatorMode: isCreatorMode.value,
-                saved: true // Říkáme Lua scriptu, že jsme uložili (aby nerevertoval změny)
+                saved: true 
             });
-            // Zavření menu
             isVisible.value = false;
         };
 
-        /**
-         * Zavření menu bez uložení (Zrušit).
-         */
         const closeMenu = () => {
             isVisible.value = false;
-            postData('closeClothingMenu', { saved: false }); // saved: false vyvolá revert v Lua
+            postData('closeClothingMenu', { saved: false });
         };
 
         // === CAMERA LOGIC ===
         const handleMouseDown = (e) => {
-            // Ignorujeme, pokud klikáme na panel (zajištěno @mousedown.stop v HTML)
             if (e.button === 0) { mouseState.isLeftDown = true; mouseState.lastX = e.clientX; }
             else if (e.button === 2) { mouseState.isRightDown = true; mouseState.lastY = e.clientY; }
         };
@@ -293,14 +301,12 @@ createApp({
 
         const handleWheel = (e) => {
             if (!isVisible.value) return;
-            // Ignorujeme wheel na panelech (zajištěno @wheel.stop v HTML)
             let dir = e.deltaY > 0 ? "out" : "in";
             postData('zoomCamera', { dir: dir });
         };
 
         // LIFECYCLE
         onMounted(() => {
-            // NUI Listener
             window.addEventListener('message', (event) => {
                 const data = event.data;
                 if (data.action === "openClothingMenu") {
@@ -308,9 +314,20 @@ createApp({
                     gender.value = data.gender;
                     isCreatorMode.value = data.creatorMode;
                     menuData.value = data.menuData;
-                    isItemMode.value = data.isItemMode || false; // Načtení módu itemu
+                    isItemMode.value = data.isItemMode || false;
                     
-                    currentCategory.value = null; // Reset selection
+                    // Načtení seznamu itemů pro vytváření
+                    availableItemTypes.value = data.availableItemTypes || [];
+                    newOutfitName.value = "";
+                    
+                    // Default selection
+                    if (availableItemTypes.value.length > 0) {
+                        selectedItemType.value = availableItemTypes.value.includes("clothing_all") 
+                            ? "clothing_all" 
+                            : availableItemTypes.value[0];
+                    }
+
+                    currentCategory.value = null;
                     
                     if (data.bodyCategories) {
                         initBodyMenu(data.bodyCategories);
@@ -318,7 +335,6 @@ createApp({
                 }
             });
 
-            // Input Listeners
             document.addEventListener('keyup', (e) => {
                 if (e.which === 27 && !isCreatorMode.value && isVisible.value) closeMenu();
             });
@@ -337,7 +353,9 @@ createApp({
             currentItems, currentItemIndex, currentVarID,
             maxItems, maxVariants,
             palettes, selectedPalette, tints,
-            // Metody
+            // New Item creation vars
+            availableItemTypes, selectedItemType, newOutfitName, formatItemType, createNewItem,
+            // Methods
             closeMenu, selectCategory, formatBodyLabel, formatPaletteName,
             changeBodyItem, updateBodyItem,
             changeItem, onItemChange, changeVariant, onVariantChange,

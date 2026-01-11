@@ -260,3 +260,26 @@ RegisterNUICallback('zoomCamera', function(data, cb)
     UpdateCameraPosition()
     cb('ok')
 end)
+
+RegisterNUICallback("createOutletItem", function(data, cb)
+    local outfitName = data.name
+    local itemType = data.itemType -- Např. "clothing_torso"
+    
+    -- 1. Vezmeme vše, co má hráč na sobě
+    local fullClothes = PlayerClothes
+
+    -- 2. Vyfiltrujeme to podle typu itemu a tvého Config.ItemMapping
+    -- (Funkce FilterClothesForMapping musí být globální v client/clothing.lua)
+    local filteredData = FilterClothesForMapping(fullClothes, itemType)
+    
+    -- 3. Pošleme na server vyfiltrovaná data a správný typ itemu
+    TriggerServerEvent("aprts_clothing:Server:createItemFromCurrentClothes", itemType, outfitName, filteredData)
+
+    -- Zavřít menu
+    SetNuiFocus(false, false)
+    MenuOpen = false
+    EndScene()
+    CurrentItemContext = nil
+    
+    cb('ok')
+end)

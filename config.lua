@@ -12,6 +12,7 @@ Config.DiscordColor = 16753920
 Config.Jobs = {{job = 'police', grade = 1}, {job = 'doctor', grade = 3}}
 
 
+Config.BaseClothingItem = "clothing_item"
 
 Config.ItemMapping = {
     ["clothing_hat"] = { "hats", "hat_accessories", "hatband" },

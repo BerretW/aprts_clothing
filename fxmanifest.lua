@@ -3,22 +3,32 @@ lua54 'yes'
 rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aware my resources *will* become incompatible once RedM ships.'
 
 author 'SpoiledMouse'
-version '1.0'
-description 'aprts_clothing'
+version '1.1'
+description 'aprts_clothing refactored'
 
 games {"rdr3"}
 
-client_scripts {'config.lua','client/client.lua','client/functions.lua','client/nui.lua','client/events.lua','client/commands.lua',}
-server_scripts {'@oxmysql/lib/MySQL.lua','config.lua','server/server.lua','server/events.lua','server/commands.lua',}
 shared_scripts {
-    'data/albedo.lua',
-    'data/assets.lua',
-    'data/componentsbody.lua',
-    'data/wearablestates.lua',
-    'data/translate.lua',
+    '@ox_lib/init.lua',
     'config.lua',
-    '@jo_libs/init.lua',
-    '@ox_lib/init.lua'
+    'data/*.lua' -- Načte všechny soubory ve složce data
+}
+
+client_scripts {
+    'client/utils.lua',    -- Pomocné funkce první
+    'client/camera.lua',   -- Kamera
+    'client/clothing.lua', -- Logika oblečení
+    'client/menu.lua',     -- Logika menu
+    'client/main.lua',     -- Hlavní smyčky a init
+    'client/nui.lua',      -- NUI callbacky
+    'client/commands.lua', -- Příkazy
+}
+
+server_scripts {
+    'server/database.lua', -- Databáze první
+    'server/main.lua',
+    'server/events.lua',
+    'server/commands.lua',
 }
 
 ui_page 'nui/index.html'
@@ -27,6 +37,6 @@ files {
     'nui/index.html',
     'nui/style.css',
     'nui/script.js',
-    'nui/fonts/*.ttf', -- Pokud budeš chtít custom fonty (volitelné)
-    'nui/img/*.png'    -- Pokud budeš chtít obrázky (volitelné)
+    'nui/fonts/*.ttf',
+    'nui/img/*.png'
 }
