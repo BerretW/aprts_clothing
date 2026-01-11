@@ -3,9 +3,15 @@ let currentItems = [];
 let currentItemIndex = -1; 
 let currentVarID = 1;      
 let gender = "male";
-let isCreatorMode = false; // PŘIDÁNO: Proměnná pro stav módu
-
+let isCreatorMode = false;
 let bodyState = {};
+
+// === PROMĚNNÉ PRO OVLÁDÁNÍ KAMERY ===
+let isLeftMouseDown = false;
+let isRightMouseDown = false;
+let previousMouseX = 0;
+let previousMouseY = 0;
+// ====================================
 
 const Palettes = [
     "metaped_tint_generic_clean", "metaped_tint_hair", "metaped_tint_horse_leather", 
@@ -14,19 +20,21 @@ const Palettes = [
 ];
 
 $(document).ready(function() {
+    // Naplnění selectu s paletami
     const paletteSelect = $('#palette-select');
     Palettes.forEach((pal, index) => {
         let name = pal.replace('metaped_tint_', '').replace(/_/g, ' ');
         paletteSelect.append(new Option(name, index + 1));
     });
 
+    // Naslouchání zprávám z LUA
     window.addEventListener('message', function(event) {
         let data = event.data;
 
         if (data.action === "openClothingMenu") {
             $("#clothing-menu").fadeIn(200);
             gender = data.gender;
-            isCreatorMode = data.creatorMode; // PŘIDÁNO: Uložení stavu
+            isCreatorMode = data.creatorMode; 
             
             setupStructuredCategories(data.menuData);
 
@@ -38,20 +46,83 @@ $(document).ready(function() {
             $("#editor-panel").hide();
             $(".cat-btn").removeClass("active");
             
-            // Volitelné: Skrýt křížek pro zavření, pokud je to Creator Mode (hráč musí uložit)
+            // Pokud je Creator Mode, skryjeme křížek
             if (isCreatorMode) {
                 $(".close-btn").hide();
             } else {
                 $(".close-btn").show();
             }
+
+            // Reset stavu myši při otevření
+            isLeftMouseDown = false;
+            isRightMouseDown = false;
         }
     });
 
+    // Zavření přes ESC
     document.onkeyup = function(data) {
-        // V creator módu zakážeme zavření přes ESC, pokud to tak chceš
         if (data.which == 27 && !isCreatorMode) closeMenu();
     };
+
+    // ==========================================
+    // OVLÁDÁNÍ KAMERY (PŘEPSÁNO DLE VUE VZORU)
+    // ==========================================
+
+    // Zamezení kontextového menu
+    document.addEventListener('contextmenu', event => event.preventDefault());
+
+    document.addEventListener('mousedown', function(event) {
+        // Levé tlačítko (Rotace)
+        if (event.button === 0) { 
+            isLeftMouseDown = true;
+            previousMouseX = event.clientX; // Uložíme aktuální pozici při kliknutí
+        } 
+        // Pravé tlačítko (Výška)
+        else if (event.button === 2) { 
+            isRightMouseDown = true;
+            previousMouseY = event.clientY; // Uložíme aktuální pozici při kliknutí
+        }
+    });
+
+    document.addEventListener('mouseup', function(event) {
+        isLeftMouseDown = false;
+        isRightMouseDown = false;
+    });
+
+    document.addEventListener('mousemove', function(event) {
+        // Logika pro rotaci (Levé tlačítko)
+        if (isLeftMouseDown) {
+            let deltaX = event.clientX - previousMouseX;
+            previousMouseX = event.clientX; // Aktualizujeme pro další frame
+            
+            $.post(`https://${GetParentResourceName()}/rotateCharacter`, JSON.stringify({
+                x: deltaX
+            }));
+        }
+
+        // Logika pro výšku kamery (Pravé tlačítko)
+        if (isRightMouseDown) {
+            let deltaY = event.clientY - previousMouseY;
+            previousMouseY = event.clientY; // Aktualizujeme pro další frame
+
+            $.post(`https://${GetParentResourceName()}/moveCameraHeight`, JSON.stringify({
+                y: deltaY
+            }));
+        }
+    });
+
+    // Zoom kolečkem
+    document.addEventListener('wheel', function(event) {
+        let dir = event.deltaY > 0 ? "out" : "in";
+        $.post(`https://${GetParentResourceName()}/zoomCamera`, JSON.stringify({
+            dir: dir
+        }));
+    });
 });
+
+// ==========================================
+// FUNKCE MENU
+// ==========================================
 
 function closeMenu() {
     $("#clothing-menu").fadeOut(200);
@@ -94,7 +165,6 @@ function loadCategoryData(category) {
     $("#editor-panel").show();
     $("#item-display").text("Načítám...");
 
-    // OPRAVA: Backticks
     $.post(`https://${GetParentResourceName()}/getCatData`, JSON.stringify({
         gender: gender,
         category: category
@@ -148,7 +218,6 @@ function selectItem(index, silent = false) {
         $(".stepper:eq(1) button").prop('disabled', true);
 
         if (!silent) {
-            // OPRAVA: Backticks
             $.post(`https://${GetParentResourceName()}/removeItem`, JSON.stringify({
                 category: currentCategory
             }));
@@ -206,7 +275,6 @@ function updateVariantDisplay(item) {
 
 function sendApplyItem(index, varID) {
     if (!currentCategory) return;
-    // OPRAVA: Backticks
     $.post(`https://${GetParentResourceName()}/applyItem`, JSON.stringify({
         category: currentCategory,
         index: index,
@@ -221,7 +289,6 @@ function removeItem() {
 function applyPalette() {
     if (!currentCategory || currentItemIndex === -1) return;
     let palIndex = $("#palette-select").val();
-    // OPRAVA: Backticks
     $.post(`https://${GetParentResourceName()}/changePalette`, JSON.stringify({
         category: currentCategory,
         palette: parseInt(palIndex)
@@ -234,7 +301,6 @@ function applyTint() {
     let t1 = $("#tint1").val();
     let t2 = $("#tint2").val();
 
-    // OPRAVA: Backticks
     $.post(`https://${GetParentResourceName()}/changeTint`, JSON.stringify({
         category: currentCategory,
         tint0: t0,
@@ -244,13 +310,15 @@ function applyTint() {
 }
 
 function saveClothes() {
-    // Posíláme zpět informaci, zda jsme v CreatorMode
     $.post(`https://${GetParentResourceName()}/saveClothes`, JSON.stringify({
         CreatorMode: isCreatorMode
     }));
-    
     closeMenu();
 }
+
+// ==========================================
+// FUNKCE PRO MENU TĚLA (LEVÁ STRANA)
+// ==========================================
 
 function initBodyMenu(categories) {
     $("#body-menu").fadeIn(200);
@@ -280,7 +348,6 @@ function initBodyMenu(categories) {
 }
 
 function fetchBodyData(category) {
-    // OPRAVA: Backticks
     $.post(`https://${GetParentResourceName()}/getCatData`, JSON.stringify({
         gender: gender,
         category: category
@@ -308,7 +375,6 @@ function changeBodyPart(category, dir) {
 
     updateBodyDisplay(category);
     
-    // OPRAVA: Backticks
     $.post(`https://${GetParentResourceName()}/applyItem`, JSON.stringify({
         category: category,
         index: state.index + 1,
@@ -324,7 +390,6 @@ function updateBodyDisplay(category) {
 }
 
 function resetToNaked() {
-    // OPRAVA: Backticks
     $.post(`https://${GetParentResourceName()}/resetToNaked`, JSON.stringify({}), function() {
         if (bodyState["bodies_upper"]) fetchBodyData("bodies_upper");
         if (bodyState["bodies_lower"]) fetchBodyData("bodies_lower");
@@ -336,6 +401,5 @@ function resetToNaked() {
 }
 
 function refreshPed() {
-    // OPRAVA: Backticks
     $.post(`https://${GetParentResourceName()}/refresh`, JSON.stringify({}));
 }

@@ -188,12 +188,13 @@ function DisableActions(ped)
 end
 
 -- ... (předchozí kód zůstává stejný)
-
 function OpenMenu(menu, creator)
     SetNuiFocus(true, true)
     MenuOpen = true
 
     local ped = PlayerPedId()
+    FreezeEntityPosition(ped, true) -- Zmrazíme hráče, aby neutekl při rotaci
+
     local gender = "male"
     if not IsPedMale(ped) then
         gender = "female"
@@ -205,62 +206,74 @@ function OpenMenu(menu, creator)
     }
 
     local menuData = GetStructuredMenu(menu)
+    
+    -- Inicializace kamery
+    initScene()
 
     SendNUIMessage({
         action = "openClothingMenu",
         menuData = menuData,
         gender = gender,
         bodyCategories = Config.BodyCategories,
-        creatorMode = creator -- Předáváme informaci do JS
+        creatorMode = creator
     })
 end
 
+function initScene()
+    local ped = PlayerPedId()
+    
+    -- Reset hodnot
+    camHeight = 0.5
+    camDistance = 2.5
+    camHeadingOffset = GetEntityHeading(ped) + 180.0 -- Kamera se dívá na hráče zepředu
+
+    if not DoesCamExist(Camera) then
+        Camera = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
+    end
+
+    SetCamActive(Camera, true)
+    RenderScriptCams(true, false, 0, true, true)
+    
+    UpdateCameraPosition()
+end
+
+function EndScene()
+    if DoesCamExist(Camera) then
+        SetCamActive(Camera, false)
+        RenderScriptCams(false, false, 0, true, true)
+        DestroyCam(Camera, false)
+        Camera = nil
+    end
+    FreezeEntityPosition(PlayerPedId(), false)
+end
 
 function UpdateCameraPosition()
     if not Camera or not DoesCamExist(Camera) then
         return
     end
+    
     local ped = PlayerPedId()
     local coords = GetEntityCoords(ped)
-    local anchorHeading = Config.Camera.heading or 93.2
-    local rad = math.rad(anchorHeading)
-
-    local camX = coords.x + (math.sin(rad) * -camDistance)
+    
+    -- Výpočet pozice kamery na základě úhlu (camHeadingOffset) a vzdálenosti
+    local rad = math.rad(camHeadingOffset)
+    local camX = coords.x + (math.sin(rad) * camDistance)
     local camY = coords.y + (math.cos(rad) * camDistance)
     local camZ = coords.z + camHeight
 
     SetCamCoord(Camera, camX, camY, camZ)
-    local lookAtZ = coords.z + (camHeight * 0.9)
-    PointCamAtCoord(Camera, coords.x, coords.y, lookAtZ)
+    
+    -- Kamera se dívá na střed hráče (mírně posunuto nahoru, aby nebyla na nohy)
+    PointCamAtCoord(Camera, coords.x, coords.y, coords.z + 0.3) 
 end
 
-
-function initScene()
-    Camera = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
-    SetCamActive(Camera, true)
-    RenderScriptCams(true, false, 0, true, true)
-    SetCamFov(Camera, defaultFov)
-end
--- UPRAVENÝ EXPORT
 exports("creator", function()
-    -- 1. Resetujeme stav
     dataReady = false
-
-    -- 2. Otevřeme menu v Creator módu
     OpenMenu(Config.ClothingMenu, true)
-
-    -- 3. Čekáme, dokud hráč neklikne na "Uložit" (dataReady se naplní v nui.lua)
     while not dataReady do
         Citizen.Wait(100)
     end
-
-    -- 4. Uložíme si výsledek
     local result = dataReady
-
-    -- 5. Resetujeme pro další použití
     dataReady = false
-
-    -- 6. Vrátíme oblečení
     return result
 end)
-

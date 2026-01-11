@@ -1,9 +1,15 @@
 -- OPRAVA: Odstraněno 'local', aby byla proměnná globální a viditelná v client.lua
 MenuOpen = false
-
+local limits = {
+    minDist = 0.6,
+    maxDist = 3.5,
+    minHeight = -0.7,
+    maxHeight = 0.85
+}
 RegisterNuiCallback('closeClothingMenu', function(data, cb)
     SetNuiFocus(false, false)
     MenuOpen = false
+    EndScene() -- DŮLEŽITÉ: Zničit kameru a odmrazit hráče
     cb('ok')
 end)
 
@@ -106,18 +112,24 @@ RegisterNuiCallback("saveClothes", function(data, cb)
 
     cb('ok')
 end)
-
-
+-- Rotace postavy (Levé tlačítko)
 RegisterNUICallback('rotateCharacter', function(data, cb)
     local ped = PlayerPedId()
-    if inMurphy then
-        cb('ok')
-        return
-    end
-    SetEntityHeading(ped, GetEntityHeading(ped) + (data.x * 0.3))
+    local heading = GetEntityHeading(ped)
+    
+    -- data.x je rozdíl v pohybu myši. Pokud hýbeme doleva, přičítáme, doprava odečítáme.
+    local newHeading = heading - (data.x * 0.5) 
+    
+    SetEntityHeading(ped, newHeading)
+    
+    -- Aktualizujeme i offset kamery, aby se kamera neotáčela s hráčem, ale zůstala "fixní" vůči světu,
+    -- nebo můžeme nechat kameru tak a jen točit pedem.
+    -- V tomto případě jen točíme pedem, kamera stojí.
+    
     cb('ok')
 end)
 
+-- Výška kamery (Pravé tlačítko)
 RegisterNUICallback('moveCameraHeight', function(data, cb)
     camHeight = camHeight - (data.y * 0.005)
     if camHeight < limits.minHeight then
@@ -130,19 +142,23 @@ RegisterNUICallback('moveCameraHeight', function(data, cb)
     cb('ok')
 end)
 
+-- Zoom kamery (Kolečko)
 RegisterNUICallback('zoomCamera', function(data, cb)
     local step = 0.2
+    
     if data.dir == "in" then
         camDistance = camDistance - step
     else
         camDistance = camDistance + step
     end
+    
     if camDistance < limits.minDist then
         camDistance = limits.minDist
     end
     if camDistance > limits.maxDist then
         camDistance = limits.maxDist
     end
+    
     UpdateCameraPosition()
     cb('ok')
 end)
