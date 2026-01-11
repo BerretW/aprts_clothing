@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/font_faces.css">
+    <link rel="stylesheet" href="css/variation_menu.css">
+    <link rel="stylesheet" href="css/tint_menu.css">
+    <link rel="stylesheet" href="css/global_menu.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="lang.js"></script>
+    <script src="script.js"></script>
+</head>
+
+
+<body>
+
+    <!-- Global menu for character customisation-->
+    <div id="OutfitListMenu" class="hidden">
+
+        <div id="OutfitListMenuContent">
+
+            <div id="OutfitMenuList">
+                <div id="title">
+                    <h1>OUTFIT</h1>
+                </div>
+
+
+                <a class="newOutfit" id="CreateNewOutfitGlob">
+
+                    <p class="OutfitName" id="CreateNewOutfit">Create new outfit</p>
+                    <p style="font-size: 20px; color: white;font-weight: 700;">+</p>
+
+                </a>
+
+                <a class="newOutfit" id="CreateNewOutfitGlob" style="margin-top: 0;">
+
+                    <p class="OutfitName" id="CreateNewOutfitMannequin">Create new outfit using mannequin</p>
+                    <p style="font-size: 20px; color: white;font-weight: 700;">+</p>
+
+                </a>
+
+                <img src="img/separator.png" alt="separator" class="separator">
+
+                <div id="OutfitList">
+
+
+                    <div class="OutfitElement">
+
+                        <div class="OutfitElemTitle">
+
+                            <div style="display: flex; align-items: center;width: 100%;">
+                                <p class="OutfitName" style="max-width: 110px;">Sheriff</p>
+                                <p class="OutfitPrice">- $3.00</p>
+                            </div>
+
+                        </div>
+
+                        <div class="InteractionDiv">
+
+                            <a class="buttonOutfitLeft"><img src="./img/icons/eye.png"></a>
+                            <a class="buttonOutfit"><img src="./img/icons/pen.png"></a>
+                            <a class="buttonOutfit"><img src="./img/icons/cash.png"></a>
+                            <a class="buttonOutfit"><img src="./img/icons/close.png"></a>
+
+                        </div>
+
+                    </div>
+
+
+                </div>
+            </div>
+
+            <div id="OutfitMenuInteraction" style="margin-top: 10px;">
+                <a href="#" id="CloseMyOutfit" class="button">Back</a>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Actual Outfit Variations -->
+    <div id="OutfitVariations" class="hidden">
+
+        <div id="OutfitVariationContent">
+
+            <div id="OutfitMenuList">
+                <div id="title">
+                    <h1>MY OUTFIT</h1>
+                </div>
+
+                <!-- Naked Variation -->
+                <div id="NakedVariation">
+
+                </div>
+
+                <img src="img/separator.png" alt="separator" class="separator">
+
+                <!-- Outfit Tabs -->
+                <div id="Tabs">
+
+                    <a href="#" id="ClothesCategorie" class="button tabs_btn">Clothes</a>
+                    <a href="#" id="SkinCategorie" class="button tabs_btn">Skin</a>
+
+                </div>
+
+
+                <!-- Items Container -->
+                <div id="MyOutfitProperties">
+
+                </div>
+            </div>
+
+            <div id="OutfitMenuInteraction">
+                <div style="width: 80%;display: flex;justify-content: space-between;">
+                    <a href="#" id="SaveActualOutfit" class="button" style="width: 100%;margin-right: 8px;">Save</a>
+                    <a href="#" id="ResetActualOutfit" class="button" style="width: 100%;">Reset</a>
+                </div>
+                <a href="#" id="CloseActualOutfit" class="button">Confirm</a>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Delete Outfit Menu Container-->
+    <div id="DeletionConfirmation" class="hidden" style="width: 200vh;
+    height: 100vh;
+    background-color: #000000eb;
+    z-index: 5;">
+
+    </div>
+
+    <!-- Select Outfit Menu Container-->
+    <div id="SelectOutfitName" class="hidden" style="width: 400vh;
+        height: 100vh;
+        background-color: #000000eb;
+        z-index: 5;">
+
+    </div>
+
+    <!-- Select Mannequin Gender Menu Container-->
+    <div id="SelectOutfitGender" class="hidden" style="width: 200vh;
+            height: 100vh;
+            background-color: #000000eb;
+            z-index: 5;">
+
+    </div>
+
+    <!-- Global menu for character customisation-->
+    <div id="OutfitMenu" class="hidden">
+
+        <div id="OutfitMenuContent">
+
+            <div id="OutfitMenuList">
+                <div id="title">
+                    <h1>OUTFIT</h1>
+                </div>
+
+                <!-- Categories Container -->
+                <div id="Categories">
+
+                </div>
+
+                <img src="img/separator.png" alt="separator" class="separator">
+
+                <!-- Items Container -->
+                <div id="StyleProperties">
+
+                </div>
+            </div>
+
+            <div id="OutfitMenuInteraction">
+                <div style="width: 80%;display: flex;justify-content: space-between;">
+                    <a href="#" id="CreateOutfit" class="button cache" style="width: 100%;margin-right: 8px;">Save -
+                        $0</a>
+                    <a href="#" id="ResetOutfit" class="button" style="width: 100%;">Reset</a>
+                </div>
+                <a href="#" id="CancelOutfit" class="button">Cancel</a>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Variation menu for character customisation-->
+    <div id="VariationSettings" class="hidden">
+
+        <div id="ContextTitle">
+
+            <img src="./img/icons/variation_icon.png" alt="Variations Icon">
+            <h2>Variation settings</h2>
+
+        </div>
+
+        <img src="img/separator.png" alt="separator" class="separator">
+
+        <div id="ContextSettings">
+
+            <div class="ContextElem" id="varSlider">
+
+                <p>Var - <span id="actualVar">2756</span></p>
+
+                <div>
+
+                    <a onclick="VALUE" id="left_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow left"></a>
+                    <input type="range" name="Variation" id="rangeContext">
+                    <a onclick="VALUE" id="right_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow right"></a>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+        <img src="img/separator_down.png" alt="separator" class="separator" id="separator_var"
+            style="margin-bottom: 0;">
+
+        <div id="ContextSettings" class="TintList">
+
+            <div class="ContextElem">
+
+                <p>T1 - <span>256</span></p>
+                <div>
+
+                    <a onclick="VALUE" id="left_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow left"></a>
+                    <input type="range" name="Variation" id="rangeContext">
+                    <a onclick="VALUE" id="right_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow right"></a>
+
+                </div>
+
+            </div>
+
+            <div class="ContextElem">
+
+                <p>T2 - <span>256</span></p>
+                <div>
+
+                    <a onclick="VALUE" id="left_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow left"></a>
+                    <input type="range" name="Variation" id="rangeContext">
+                    <a onclick="VALUE" id="right_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow right"></a>
+
+                </div>
+
+            </div>
+
+            <div class="ContextElem">
+
+                <p>T3 - <span>256</span></p>
+                <div>
+
+                    <a onclick="VALUE" id="left_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow left"></a>
+                    <input type="range" name="Variation" id="rangeContext">
+                    <a onclick="VALUE" id="right_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow right"></a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Variation menu for character customisation-->
+    <div id="TintSettings" class="hidden">
+
+        <div id="ContextTitle">
+
+            <img src="./img/icons/variation_icon.png" alt="Variations Icon">
+            <h2>Colour settings</h2>
+
+        </div>
+
+        <img src="img/separator.png" alt="separator" class="separator">
+
+        <div id="ContextSettings">
+
+            <div class="TintElem">
+
+                <div class="ElemSliderTint">
+
+                    <div class="sliderElemTypeTwo">
+                        <a onclick="VALUE" id="left_arrow" class="arrow"><img src="./img/arrow.png"
+                                alt="Arrow left"></a>
+                        <p class="sliderValueTypeTwo">Colour 2</p>
+                        <a onclick="VALUE" id="right_arrow" class="arrow"><img src="./img/arrow.png"
+                                alt="Arrow right"></a>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="TintElem">
+
+                <div class="coloursDiv">
+
+                    <a onclick=""><img src="./img/colours/1.png" alt="coulour" class="Colour"></a>
+                    <a onclick="" class="selected"><img src="./img/colours/2.png" alt="coulour " class="Colour"></a>
+                    <a onclick=""><img src="./img/colours/3.png" alt="coulour" class="Colour"></a>
+                    <a onclick=""><img src="./img/colours/4.png" alt="coulour" class="Colour"></a>
+                    <a onclick=""><img src="./img/colours/5.png" alt="coulour" class="Colour"></a>
+                    <a onclick=""><img src="./img/colours/6.png" alt="coulour" class="Colour"></a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Camera settings menu for character customisation-->
+    <div id="CameraSettings" class="hidden">
+
+        <div id="CamTitle">
+
+            <img src="./img/icons/camera_icon.png" alt="Camera Icon">
+            <h2>Camera position</h2>
+
+        </div>
+
+        <img src="img/separator.png" alt="separator" class="separator">
+
+        <div id="ContextSettings" class="CameraList">
+
+            <div class="CamElem">
+
+                <p>H</p>
+                <div>
+
+                    <a onclick="VALUE" id="left_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow left"></a>
+                    <input type="range" name="Variation" id="rangeContext">
+                    <a onclick="VALUE" id="right_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow right"></a>
+
+                </div>
+
+            </div>
+
+            <div class="CamElem">
+
+                <p>Z</p>
+                <div>
+
+                    <a onclick="VALUE" id="left_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow left"></a>
+                    <input type="range" name="Variation" id="rangeContext">
+                    <a onclick="VALUE" id="right_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow right"></a>
+
+                </div>
+
+            </div>
+
+            <div class="CamElem">
+
+                <p>R</p>
+                <div>
+
+                    <a onclick="VALUE" id="left_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow left"></a>
+                    <input type="range" name="Variation" id="rangeContext">
+                    <a onclick="VALUE" id="right_arrow" class="arrow"><img src="./img/arrow.png" alt="Arrow right"></a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+</body>
+
+</html>
