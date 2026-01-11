@@ -71,6 +71,7 @@ function DeepCopy(orig)
     return copy
 end
 
+
 --- Bezpečné zavolání exportu s návratovou hodnotou a defaultem
 function SafeExport(resourceName, functionName, defaultReturn, ...)
     if GetResourceState(resourceName) ~= "started" then
@@ -202,7 +203,7 @@ function DisableActions(ped)
 end
 
 -- ... (předchozí kód zůstává stejný)
-function OpenMenu(menu, creator, isWearableOnly) -- Přidán parametr isWearableOnly
+function OpenMenu(menu, creator)
     SetNuiFocus(true, true)
     MenuOpen = true
 
@@ -214,12 +215,13 @@ function OpenMenu(menu, creator, isWearableOnly) -- Přidán parametr isWearable
         gender = "female"
     end
 
-    if PlayerClothes then
-        ClothesCache = DeepCopy(PlayerClothes)
-    else
-        ClothesCache = {}
-    end
-    
+    -- Uložíme si aktuální stav pro případné zrušení (Cancel)
+    -- ClothesCache se plní při načtení postavy, ale pro jistotu ho aktualizujeme před otevřením
+if PlayerClothes then
+    ClothesCache = DeepCopy(PlayerClothes)
+else
+    ClothesCache = {}
+end
     OriginalBody = {
         bodies_upper = GetIndexFromMeta("bodies_upper", ped),
         bodies_lower = GetIndexFromMeta("bodies_lower", ped)
@@ -235,17 +237,15 @@ function OpenMenu(menu, creator, isWearableOnly) -- Přidán parametr isWearable
         gender = gender,
         bodyCategories = Config.BodyCategories,
         creatorMode = creator,
+        -- NOVÉ: Posíláme info, zda upravujeme item (aby se zobrazilo tlačítko)
         isItemMode = (CurrentItemContext ~= nil),
-        itemLabel = CurrentItemContext and CurrentItemContext.itemName or "",
-        
-        -- NOVÉ:
-        isWearableMode = isWearableOnly or false 
+        itemLabel = CurrentItemContext and CurrentItemContext.itemName or "" 
     })
 end
 
 function initScene()
     local ped = PlayerPedId()
-
+    
     -- Reset hodnot
     camHeight = 0.5
     camDistance = 2.5
@@ -257,7 +257,7 @@ function initScene()
 
     SetCamActive(Camera, true)
     RenderScriptCams(true, false, 0, true, true)
-
+    
     UpdateCameraPosition()
 end
 
@@ -275,24 +275,24 @@ function UpdateCameraPosition()
     if not Camera or not DoesCamExist(Camera) then
         return
     end
-
+    
     local ped = PlayerPedId()
     local coords = GetEntityCoords(ped)
-
+    
     -- Výpočet pozice kamery
     local rad = math.rad(camHeadingOffset)
     local camX = coords.x + (math.sin(rad) * camDistance)
     local camY = coords.y + (math.cos(rad) * camDistance)
-
+    
     -- Zde je výška samotné kamery
     local camZ = coords.z + camHeight
 
     SetCamCoord(Camera, camX, camY, camZ)
-
+    
     -- OPRAVA: Kamera se nyní dívá na stejnou výšku (Z), ve které se nachází.
     -- Tím docílíme efektu "výtahu" místo rotace úhlu.
     -- (coords.z + camHeight) zajistí, že se díváme přímo před sebe.
-    PointCamAtCoord(Camera, coords.x, coords.y, coords.z + camHeight)
+    PointCamAtCoord(Camera, coords.x, coords.y, coords.z + camHeight) 
 end
 
 exports("creator", function()

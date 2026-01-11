@@ -4,8 +4,7 @@ createApp({
     setup() {
         const isVisible = ref(false);
         const isCreatorMode = ref(false);
-        const isItemMode = ref(false);
-        const isWearableMode = ref(false); // Mód pouze pro úpravy (skryje obchod)
+        const isItemMode = ref(false); // Nové: Indikuje, zda editujeme item
         const gender = ref('male');
         
         // Data menu
@@ -13,17 +12,12 @@ createApp({
         const currentCategory = ref(null);
         
         // Data pro tělo (levý panel)
-        const bodyStates = reactive({}); 
+        const bodyStates = reactive({}); // { "bodies_upper": { index: 0, max: 10, items: [] } }
 
         // Data pro vybranou kategorii (pravý panel)
         const currentItems = ref([]);
         const currentItemIndex = ref(-1); // -1 = Nic/Svlečeno
         const currentVarID = ref(1);
-        
-        // Nové refy pro dynamické stavy oblečení (pravý panel)
-        const maxClothingStates = ref(0);
-        const currentClothingState = ref(1);
-
         const selectedPalette = ref(1);
         const tints = reactive([0, 0, 0]);
 
@@ -38,7 +32,7 @@ createApp({
         // Kamera state
         const mouseState = reactive({ isLeftDown: false, isRightDown: false, lastX: 0, lastY: 0 });
 
-        // COMPUTED PROPERTIES
+        // COMPUTED
         const maxItems = computed(() => {
             return currentItems.value.length > 0 ? currentItems.value.length - 1 : 0;
         });
@@ -59,6 +53,7 @@ createApp({
 
         const currentCategoryLabel = computed(() => {
             if (!currentCategory.value) return "KATEGORIE";
+            // Najít label v menuData
             for (const section of menuData.value) {
                 const found = section.items.find(i => i.id === currentCategory.value);
                 if (found) return found.label;
@@ -91,24 +86,23 @@ createApp({
             return pal.replace('metaped_tint_', '').replace(/_/g, ' ');
         };
 
-        // === BODY LOGIC (Levý Panel) ===
+        // === BODY LOGIC ===
         const initBodyMenu = (categories) => {
             categories.forEach(async (cat) => {
                 const data = await postData('getCatData', { gender: gender.value, category: cat });
                 if (data) {
                     const items = data.items || [];
                     
+                    // OPRAVA: Lua (1-based) -> JS (0-based)
                     let currentIdx = (data.currentIndex !== undefined && data.currentIndex !== -1) ? data.currentIndex : 1;
                     currentIdx = currentIdx - 1;
+
                     if (currentIdx < 0) currentIdx = 0;
                     
                     bodyStates[cat] = {
                         items: items,
                         index: currentIdx, 
-                        max: items.length,
-                        // Data pro stavy těla (static from wearablestates.lua)
-                        maxStates: data.maxStates || 0,
-                        currentState: data.currentState || 1
+                        max: items.length
                     };
                 }
             });
@@ -128,40 +122,23 @@ createApp({
 
         const updateBodyItem = (cat) => {
             const state = bodyStates[cat];
+            // Odeslání do LUA (přičítáme 1 pro Lua)
             postData('applyItem', { category: cat, index: state.index + 1, varID: 1 });
         };
 
-        // Ovládání slideru pro Body States (Levý panel)
-        const changeBodyState = (cat, dir) => {
-            const state = bodyStates[cat];
-            if (!state || state.maxStates <= 1) return;
-            
-            let newVal = state.currentState + dir;
-            if (newVal < 1) newVal = state.maxStates;
-            if (newVal > state.maxStates) newVal = 1;
-            
-            state.currentState = newVal;
-            updateBodyState(cat);
-        };
-
-        const updateBodyState = (cat) => {
-            const state = bodyStates[cat];
-            postData('applyWearableState', { category: cat, stateIndex: state.currentState });
-        };
-
-        // === CLOTHING LOGIC (Pravý Panel) ===
+        // === CLOTHING LOGIC ===
         
         const selectCategory = async (catId) => {
             currentCategory.value = catId;
             
-            // Reset filtrů
+            // Reset filtrů na default (pro jistotu, kdyby data nepřišla)
             tints[0] = 0; tints[1] = 0; tints[2] = 0;
             selectedPalette.value = 1;
 
             const data = await postData('getCatData', { gender: gender.value, category: catId });
             
             if (Array.isArray(data)) {
-                // Fallback pro starý formát
+                // Fallback pro starý formát odpovědi
                 currentItems.value = data;
                 onItemChange(); 
             } else {
@@ -170,12 +147,14 @@ createApp({
                 const savedVar = data.currentVar;
 
                 if (savedIndex !== undefined && savedIndex !== -1) {
+                    // OPRAVA: Lua (1-based) -> JS (0-based)
                     currentItemIndex.value = savedIndex - 1;
                     currentVarID.value = savedVar || 1;
                 } else {
-                    currentItemIndex.value = -1;
+                    currentItemIndex.value = -1; // Nic
                 }
 
+                // Aplikace uložených barev ze serveru
                 if (data.savedPalette) {
                     selectedPalette.value = data.savedPalette;
                 }
@@ -185,39 +164,42 @@ createApp({
                     tints[1] = data.savedTints[1];
                     tints[2] = data.savedTints[2];
                 }
-
-                // Načtení dat pro Clothing States (Pravý panel)
-                maxClothingStates.value = data.maxClothingStates || 0;
-                currentClothingState.value = data.currentClothingState || 1;
             }
         };
 
         const changeItem = (dir) => {
             if (currentItems.value.length === 0) return;
+            
             let newIndex = currentItemIndex.value + dir;
+            // Cyklování včetně -1 (nic)
             if (newIndex < -1) newIndex = currentItems.value.length - 1;
             else if (newIndex >= currentItems.value.length) newIndex = -1;
 
             currentItemIndex.value = newIndex;
+            // Při změně itemu resetovat variantu
             currentVarID.value = 1;
             onItemChange();
         };
 
         const onItemChange = () => {
             if (currentItemIndex.value === -1) {
+                // Remove item
                 postData('removeItem', { category: currentCategory.value });
-                maxClothingStates.value = 0; // Pokud sundáme item, nemáme stavy
             } else {
+                // Apply item
                 sendApplyItem();
             }
         };
 
         const changeVariant = (dir) => {
             if (currentItemIndex.value === -1) return;
+            
             let max = maxVariants.value;
             let newVal = currentVarID.value + dir;
+            
             if (newVal < 1) newVal = max;
             if (newVal > max) newVal = 1;
+            
             currentVarID.value = newVal;
             onVariantChange();
         };
@@ -226,42 +208,14 @@ createApp({
             sendApplyItem();
         };
 
-        const sendApplyItem = async () => {
-            // Čekáme na odpověď od Lua, která nám řekne, kolik stavů má nový item
-            const response = await postData('applyItem', {
+        const sendApplyItem = () => {
+            postData('applyItem', {
                 category: currentCategory.value,
-                index: currentItemIndex.value + 1,
+                index: currentItemIndex.value + 1, // +1 pro Lua
                 varID: currentVarID.value
             });
-
-            if (response && response.maxClothingStates !== undefined) {
-                maxClothingStates.value = response.maxClothingStates;
-                currentClothingState.value = 1; // Reset stavu při změně itemu
-            } else {
-                maxClothingStates.value = 0;
-            }
         };
 
-        // Ovládání slideru pro Clothing States (Pravý panel)
-        const changeClothingState = (dir) => {
-            if (maxClothingStates.value <= 0) return;
-            
-            let newVal = currentClothingState.value + dir;
-            if (newVal < 1) newVal = maxClothingStates.value;
-            if (newVal > maxClothingStates.value) newVal = 1;
-            
-            currentClothingState.value = newVal;
-            updateClothingState();
-        };
-
-        const updateClothingState = () => {
-            postData('applyClothingState', { 
-                category: currentCategory.value, 
-                stateIndex: currentClothingState.value 
-            });
-        };
-
-        // Ostatní metody
         const applyPalette = () => {
             postData('changePalette', { category: currentCategory.value, palette: selectedPalette.value });
         };
@@ -281,29 +235,38 @@ createApp({
         // === GLOBAL ACTIONS ===
         const resetToNaked = () => {
             postData('resetToNaked', {}).then(() => {
-                initBodyMenu(Object.keys(bodyStates));
-                if(currentCategory.value) selectCategory(currentCategory.value);
+                initBodyMenu(Object.keys(bodyStates)); // Reload body
+                if(currentCategory.value) selectCategory(currentCategory.value); // Reload cat
             });
         };
 
         const refreshPed = () => postData('refresh', {});
 
+        /**
+         * Uložení oblečení.
+         * @param {string} type - 'item' nebo 'character'
+         */
         const saveClothes = (type) => {
             postData('saveClothes', { 
                 saveType: type,
                 CreatorMode: isCreatorMode.value,
-                saved: true 
+                saved: true // Říkáme Lua scriptu, že jsme uložili (aby nerevertoval změny)
             });
+            // Zavření menu
             isVisible.value = false;
         };
 
+        /**
+         * Zavření menu bez uložení (Zrušit).
+         */
         const closeMenu = () => {
             isVisible.value = false;
-            postData('closeClothingMenu', { saved: false });
+            postData('closeClothingMenu', { saved: false }); // saved: false vyvolá revert v Lua
         };
 
         // === CAMERA LOGIC ===
         const handleMouseDown = (e) => {
+            // Ignorujeme, pokud klikáme na panel (zajištěno @mousedown.stop v HTML)
             if (e.button === 0) { mouseState.isLeftDown = true; mouseState.lastX = e.clientX; }
             else if (e.button === 2) { mouseState.isRightDown = true; mouseState.lastY = e.clientY; }
         };
@@ -330,12 +293,14 @@ createApp({
 
         const handleWheel = (e) => {
             if (!isVisible.value) return;
+            // Ignorujeme wheel na panelech (zajištěno @wheel.stop v HTML)
             let dir = e.deltaY > 0 ? "out" : "in";
             postData('zoomCamera', { dir: dir });
         };
 
         // LIFECYCLE
         onMounted(() => {
+            // NUI Listener
             window.addEventListener('message', (event) => {
                 const data = event.data;
                 if (data.action === "openClothingMenu") {
@@ -343,10 +308,9 @@ createApp({
                     gender.value = data.gender;
                     isCreatorMode.value = data.creatorMode;
                     menuData.value = data.menuData;
-                    isItemMode.value = data.isItemMode || false;
-                    isWearableMode.value = data.isWearableMode || false;
+                    isItemMode.value = data.isItemMode || false; // Načtení módu itemu
                     
-                    currentCategory.value = null;
+                    currentCategory.value = null; // Reset selection
                     
                     if (data.bodyCategories) {
                         initBodyMenu(data.bodyCategories);
@@ -354,6 +318,7 @@ createApp({
                 }
             });
 
+            // Input Listeners
             document.addEventListener('keyup', (e) => {
                 if (e.which === 27 && !isCreatorMode.value && isVisible.value) closeMenu();
             });
@@ -366,19 +331,15 @@ createApp({
         });
 
         return {
-            isVisible, isCreatorMode, isItemMode, isWearableMode,
+            isVisible, isCreatorMode, isItemMode,
             menuData, bodyStates,
             currentCategory, currentCategoryLabel,
             currentItems, currentItemIndex, currentVarID,
             maxItems, maxVariants,
             palettes, selectedPalette, tints,
-            // Stavy oblečení (pravý panel)
-            maxClothingStates, currentClothingState, 
-            changeClothingState, updateClothingState,
             // Metody
             closeMenu, selectCategory, formatBodyLabel, formatPaletteName,
             changeBodyItem, updateBodyItem,
-            changeBodyState, updateBodyState,
             changeItem, onItemChange, changeVariant, onVariantChange,
             applyPalette, applyTint, removeItem,
             resetToNaked, refreshPed, saveClothes
