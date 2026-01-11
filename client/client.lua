@@ -255,16 +255,20 @@ function UpdateCameraPosition()
     local ped = PlayerPedId()
     local coords = GetEntityCoords(ped)
     
-    -- Výpočet pozice kamery na základě úhlu (camHeadingOffset) a vzdálenosti
+    -- Výpočet pozice kamery
     local rad = math.rad(camHeadingOffset)
     local camX = coords.x + (math.sin(rad) * camDistance)
     local camY = coords.y + (math.cos(rad) * camDistance)
+    
+    -- Zde je výška samotné kamery
     local camZ = coords.z + camHeight
 
     SetCamCoord(Camera, camX, camY, camZ)
     
-    -- Kamera se dívá na střed hráče (mírně posunuto nahoru, aby nebyla na nohy)
-    PointCamAtCoord(Camera, coords.x, coords.y, coords.z + 0.3) 
+    -- OPRAVA: Kamera se nyní dívá na stejnou výšku (Z), ve které se nachází.
+    -- Tím docílíme efektu "výtahu" místo rotace úhlu.
+    -- (coords.z + camHeight) zajistí, že se díváme přímo před sebe.
+    PointCamAtCoord(Camera, coords.x, coords.y, coords.z + camHeight) 
 end
 
 exports("creator", function()

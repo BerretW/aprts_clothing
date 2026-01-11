@@ -1,405 +1,315 @@
-let currentCategory = null;
-let currentItems = [];
-let currentItemIndex = -1; 
-let currentVarID = 1;      
-let gender = "male";
-let isCreatorMode = false;
-let bodyState = {};
+const { createApp, ref, reactive, computed, onMounted } = Vue;
 
-// === PROMĚNNÉ PRO OVLÁDÁNÍ KAMERY ===
-let isLeftMouseDown = false;
-let isRightMouseDown = false;
-let previousMouseX = 0;
-let previousMouseY = 0;
-// ====================================
+createApp({
+    setup() {
+        const isVisible = ref(false);
+        const isCreatorMode = ref(false);
+        const gender = ref('male');
+        
+        // Data menu
+        const menuData = ref([]);
+        const currentCategory = ref(null);
+        
+        // Data pro tělo (levý panel)
+        const bodyStates = reactive({}); // { "bodies_upper": { index: 0, max: 10, items: [] } }
 
-const Palettes = [
-    "metaped_tint_generic_clean", "metaped_tint_hair", "metaped_tint_horse_leather", 
-    "metaped_tint_animal", "metaped_tint_makeup", "metaped_tint_leather", 
-    "metaped_tint_combined_leather"
-];
+        // Data pro vybranou kategorii (pravý panel)
+        const currentItems = ref([]);
+        const currentItemIndex = ref(-1); // -1 = Nic/Svlečeno
+        const currentVarID = ref(1);
+        const selectedPalette = ref(1);
+        const tints = reactive([0, 0, 0]);
 
-$(document).ready(function() {
-    // Naplnění selectu s paletami
-    const paletteSelect = $('#palette-select');
-    Palettes.forEach((pal, index) => {
-        let name = pal.replace('metaped_tint_', '').replace(/_/g, ' ');
-        paletteSelect.append(new Option(name, index + 1));
-    });
+        // Palety (konstanty)
+        const palettes = [
+            "metaped_tint_generic_clean", "metaped_tint_hair", 
+            "metaped_tint_horse_leather", "metaped_tint_animal", 
+            "metaped_tint_makeup", "metaped_tint_leather", 
+            "metaped_tint_combined_leather"
+        ];
 
-    // Naslouchání zprávám z LUA
-    window.addEventListener('message', function(event) {
-        let data = event.data;
+        // Kamera state
+        const mouseState = reactive({ isLeftDown: false, isRightDown: false, lastX: 0, lastY: 0 });
 
-        if (data.action === "openClothingMenu") {
-            $("#clothing-menu").fadeIn(200);
-            gender = data.gender;
-            isCreatorMode = data.creatorMode; 
-            
-            setupStructuredCategories(data.menuData);
-
-            if (data.bodyCategories) {
-                initBodyMenu(data.bodyCategories);
-            }
-            
-            currentCategory = null;
-            $("#editor-panel").hide();
-            $(".cat-btn").removeClass("active");
-            
-            // Pokud je Creator Mode, skryjeme křížek
-            if (isCreatorMode) {
-                $(".close-btn").hide();
-            } else {
-                $(".close-btn").show();
-            }
-
-            // Reset stavu myši při otevření
-            isLeftMouseDown = false;
-            isRightMouseDown = false;
-        }
-    });
-
-    // Zavření přes ESC
-    document.onkeyup = function(data) {
-        if (data.which == 27 && !isCreatorMode) closeMenu();
-    };
-
-    // ==========================================
-    // OVLÁDÁNÍ KAMERY (PŘEPSÁNO DLE VUE VZORU)
-    // ==========================================
-
-    // Zamezení kontextového menu
-    document.addEventListener('contextmenu', event => event.preventDefault());
-
-    document.addEventListener('mousedown', function(event) {
-        // Levé tlačítko (Rotace)
-        if (event.button === 0) { 
-            isLeftMouseDown = true;
-            previousMouseX = event.clientX; // Uložíme aktuální pozici při kliknutí
-        } 
-        // Pravé tlačítko (Výška)
-        else if (event.button === 2) { 
-            isRightMouseDown = true;
-            previousMouseY = event.clientY; // Uložíme aktuální pozici při kliknutí
-        }
-    });
-
-    document.addEventListener('mouseup', function(event) {
-        isLeftMouseDown = false;
-        isRightMouseDown = false;
-    });
-
-    document.addEventListener('mousemove', function(event) {
-        // Logika pro rotaci (Levé tlačítko)
-        if (isLeftMouseDown) {
-            let deltaX = event.clientX - previousMouseX;
-            previousMouseX = event.clientX; // Aktualizujeme pro další frame
-            
-            $.post(`https://${GetParentResourceName()}/rotateCharacter`, JSON.stringify({
-                x: deltaX
-            }));
-        }
-
-        // Logika pro výšku kamery (Pravé tlačítko)
-        if (isRightMouseDown) {
-            let deltaY = event.clientY - previousMouseY;
-            previousMouseY = event.clientY; // Aktualizujeme pro další frame
-
-            $.post(`https://${GetParentResourceName()}/moveCameraHeight`, JSON.stringify({
-                y: deltaY
-            }));
-        }
-    });
-
-    // Zoom kolečkem
-    document.addEventListener('wheel', function(event) {
-        let dir = event.deltaY > 0 ? "out" : "in";
-        $.post(`https://${GetParentResourceName()}/zoomCamera`, JSON.stringify({
-            dir: dir
-        }));
-    });
-});
-
-// ==========================================
-// FUNKCE MENU
-// ==========================================
-
-function closeMenu() {
-    $("#clothing-menu").fadeOut(200);
-    $("#body-menu").fadeOut(200);
-    $.post(`https://${GetParentResourceName()}/closeClothingMenu`, JSON.stringify({}));
-}
-
-function setupStructuredCategories(menuData) {
-    let list = $("#category-list");
-    list.html("");
-
-    if (!menuData || menuData.length === 0) {
-        list.html('<div style="padding:15px; color:#aaa; text-align:center;">Žádné dostupné kategorie.</div>');
-        return;
-    }
-
-    menuData.forEach(section => {
-        let headerDiv = $(`<div class="menu-header">${section.header.toUpperCase()}</div>`);
-        list.append(headerDiv);
-
-        section.items.forEach(catItem => {
-            let btn = $(`<div class="cat-btn">${catItem.label}</div>`);
-            
-            btn.click(function() {
-                $(".cat-btn").removeClass("active");
-                $(this).addClass("active");
-                loadCategoryData(catItem.id);
-            });
-            list.append(btn);
+        // COMPUTED
+        const maxItems = computed(() => {
+            return currentItems.value.length > 0 ? currentItems.value.length - 1 : 0;
         });
-    });
-}
 
-function loadCategoryData(category) {
-    currentCategory = category;
-    
-    let activeLabel = $(".cat-btn.active").text() || category;
-    $("#current-cat-title").text(activeLabel.toUpperCase());
-    
-    $("#editor-panel").show();
-    $("#item-display").text("Načítám...");
-
-    $.post(`https://${GetParentResourceName()}/getCatData`, JSON.stringify({
-        gender: gender,
-        category: category
-    }), function(data) {
-        if (Array.isArray(data)) {
-            currentItems = data;
-            selectItem(0, true); 
-        } else {
-            currentItems = data.items || [];
-            let savedIndex = data.currentIndex;
-            let savedVar = data.currentVar;
-
-            if (!currentItems) currentItems = [];
-
-            if (savedIndex !== undefined && savedIndex !== null && savedIndex !== -1) {
-                currentVarID = savedVar || 1;
-                selectItem(savedIndex, true); 
+        const maxVariants = computed(() => {
+            if (currentItemIndex.value === -1 || !currentItems.value[currentItemIndex.value]) return 1;
+            const item = currentItems.value[currentItemIndex.value];
+            
+            if (item.drawable) {
+                if (Array.isArray(item.variants)) return item.variants.length;
+                if (typeof item.variants === 'object') return Object.keys(item.variants).length;
             } else {
-                selectItem(-1, true);
+                if (Array.isArray(item)) return item.length;
+                if (typeof item === 'object') return Object.keys(item.length).length;
             }
-        }
-    });
-}
+            return 1;
+        });
 
-function changeItem(dir) {
-    if (!currentItems || currentItems.length === 0) return;
+        const currentCategoryLabel = computed(() => {
+            if (!currentCategory.value) return "KATEGORIE";
+            // Najít label v menuData
+            for (const section of menuData.value) {
+                const found = section.items.find(i => i.id === currentCategory.value);
+                if (found) return found.label;
+            }
+            return currentCategory.value;
+        });
 
-    currentItemIndex += dir;
-
-    if (currentItemIndex < -1) {
-        currentItemIndex = currentItems.length - 1;
-    } else if (currentItemIndex >= currentItems.length) {
-        currentItemIndex = -1;
-    }
-
-    selectItem(currentItemIndex, false);
-}
-
-function selectItem(index, silent = false) {
-    currentItemIndex = index;
-
-    if (!silent) {
-        currentVarID = 1; 
-    }
-
-    if (currentItemIndex === -1) {
-        $("#item-display").text(`0 / ${currentItems.length} (Nic)`);
-        $("#variant-display").text("-");
-        
-        $("#tint0, #tint1, #tint2, #palette-select").prop('disabled', true);
-        $(".stepper:eq(1) button").prop('disabled', true);
-
-        if (!silent) {
-            $.post(`https://${GetParentResourceName()}/removeItem`, JSON.stringify({
-                category: currentCategory
-            }));
-        }
-        return; 
-    }
-
-    $("#tint0, #tint1, #tint2, #palette-select").prop('disabled', false);
-    $(".stepper:eq(1) button").prop('disabled', false);
-
-    let item = currentItems[index];
-    
-    $("#item-display").text(`${index + 1} / ${currentItems.length}`);
-    updateVariantDisplay(item);
-
-    if (!silent) {
-        $("#tint0, #tint1, #tint2").val(0);
-        $("#palette-select").val(1);
-        
-        sendApplyItem(index + 1, 1);
-    }
-}
-
-function changeVariant(dir) {
-    if (currentItemIndex === -1) return; 
-
-    let max = $("#variant-display").data("max") || 1;
-    currentVarID += dir;
-
-    if (currentVarID < 1) currentVarID = max;
-    if (currentVarID > max) currentVarID = 1;
-
-    $("#variant-display").text(`${currentVarID} / ${max}`);
-    sendApplyItem(currentItemIndex + 1, currentVarID);
-}
-
-function updateVariantDisplay(item) {
-    let maxVariants = 1;
-    if (item.drawable) {
-        if (item.variants && Array.isArray(item.variants)) {
-            maxVariants = item.variants.length;
-        } else if (item.variants && typeof item.variants === 'object') {
-            maxVariants = Object.keys(item.variants).length;
-        }
-    } else {
-        if (Array.isArray(item)) {
-            maxVariants = item.length;
-        } else if (typeof item === 'object') {
-            maxVariants = Object.keys(item).length;
-        }
-    }
-    $("#variant-display").text(`${currentVarID} / ${maxVariants}`);
-    $("#variant-display").data("max", maxVariants);
-}
-
-function sendApplyItem(index, varID) {
-    if (!currentCategory) return;
-    $.post(`https://${GetParentResourceName()}/applyItem`, JSON.stringify({
-        category: currentCategory,
-        index: index,
-        varID: varID
-    }));
-}
-
-function removeItem() {
-    selectItem(-1, false);
-}
-
-function applyPalette() {
-    if (!currentCategory || currentItemIndex === -1) return;
-    let palIndex = $("#palette-select").val();
-    $.post(`https://${GetParentResourceName()}/changePalette`, JSON.stringify({
-        category: currentCategory,
-        palette: parseInt(palIndex)
-    }));
-}
-
-function applyTint() {
-    if (!currentCategory || currentItemIndex === -1) return;
-    let t0 = $("#tint0").val();
-    let t1 = $("#tint1").val();
-    let t2 = $("#tint2").val();
-
-    $.post(`https://${GetParentResourceName()}/changeTint`, JSON.stringify({
-        category: currentCategory,
-        tint0: t0,
-        tint1: t1,
-        tint2: t2
-    }));
-}
-
-function saveClothes() {
-    $.post(`https://${GetParentResourceName()}/saveClothes`, JSON.stringify({
-        CreatorMode: isCreatorMode
-    }));
-    closeMenu();
-}
-
-// ==========================================
-// FUNKCE PRO MENU TĚLA (LEVÁ STRANA)
-// ==========================================
-
-function initBodyMenu(categories) {
-    $("#body-menu").fadeIn(200);
-    let container = $("#body-controls-list");
-    container.html("");
-    bodyState = {};
-
-    categories.forEach(cat => {
-        let label = cat;
-        if(cat === "bodies_upper") label = "Horní část těla";
-        if(cat === "bodies_lower") label = "Dolní část těla";
-
-        let row = `
-            <div class="body-row" id="body-row-${cat}">
-                <label>${label}</label>
-                <div class="stepper">
-                    <button onclick="changeBodyPart('${cat}', -1)">◄</button>
-                    <span id="body-display-${cat}">Načítám...</span>
-                    <button onclick="changeBodyPart('${cat}', 1)">►</button>
-                </div>
-            </div>
-        `;
-        container.append(row);
-
-        fetchBodyData(cat);
-    });
-}
-
-function fetchBodyData(category) {
-    $.post(`https://${GetParentResourceName()}/getCatData`, JSON.stringify({
-        gender: gender,
-        category: category
-    }), function(data) {
-        let items = data.items || [];
-        let currentIdx = (data.currentIndex !== undefined && data.currentIndex !== -1) ? data.currentIndex : 0;
-        
-        bodyState[category] = {
-            items: items,
-            index: currentIdx
+        // --- HTTP HELPER ---
+        const postData = async (endpoint, data) => {
+            try {
+                const response = await fetch(`https://${GetParentResourceName()}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+                    body: JSON.stringify(data)
+                });
+                return await response.json();
+            } catch (e) {
+                return null;
+            }
         };
 
-        updateBodyDisplay(category);
-    });
-}
+        // --- METODY ---
 
-function changeBodyPart(category, dir) {
-    if (!bodyState[category]) return;
+        const formatBodyLabel = (cat) => {
+            const map = { "bodies_upper": "Horní část těla", "bodies_lower": "Dolní část těla" };
+            return map[cat] || cat;
+        };
 
-    let state = bodyState[category];
-    state.index += dir;
+        const formatPaletteName = (pal) => {
+            return pal.replace('metaped_tint_', '').replace(/_/g, ' ');
+        };
 
-    if (state.index < 0) state.index = state.items.length - 1;
-    if (state.index >= state.items.length) state.index = 0;
+        // === BODY LOGIC ===
+        const initBodyMenu = (categories) => {
+            categories.forEach(async (cat) => {
+                const data = await postData('getCatData', { gender: gender.value, category: cat });
+                if (data) {
+                    const items = data.items || [];
+                    const currentIdx = (data.currentIndex !== undefined && data.currentIndex !== -1) ? data.currentIndex : 0;
+                    
+                    bodyStates[cat] = {
+                        items: items,
+                        index: currentIdx, // Vue index (0-based)
+                        max: items.length
+                    };
+                }
+            });
+        };
 
-    updateBodyDisplay(category);
-    
-    $.post(`https://${GetParentResourceName()}/applyItem`, JSON.stringify({
-        category: category,
-        index: state.index + 1,
-        varID: 1
-    }));
-}
+        const changeBodyItem = (cat, dir) => {
+            const state = bodyStates[cat];
+            if (!state) return;
+            
+            let newIndex = state.index + dir;
+            if (newIndex < 0) newIndex = state.max - 1;
+            if (newIndex >= state.max) newIndex = 0;
+            
+            state.index = newIndex;
+            updateBodyItem(cat);
+        };
 
-function updateBodyDisplay(category) {
-    let state = bodyState[category];
-    if (state && state.items) {
-        $(`#body-display-${category}`).text(`${state.index + 1} / ${state.items.length}`);
+        const updateBodyItem = (cat) => {
+            const state = bodyStates[cat];
+            // Odeslání do LUA (přičítáme 1, protože Lua pole jsou 1-based, ale item indexy mohou být různé dle assetů)
+            // Zde předpokládáme, že applyItem bere index z pole assets.
+            postData('applyItem', { category: cat, index: state.index + 1, varID: 1 });
+        };
+
+        // === CLOTHING LOGIC ===
+        
+        const selectCategory = async (catId) => {
+            currentCategory.value = catId;
+            // Reset filtrů
+            tints[0] = 0; tints[1] = 0; tints[2] = 0;
+            selectedPalette.value = 1;
+
+            const data = await postData('getCatData', { gender: gender.value, category: catId });
+            
+            if (Array.isArray(data)) {
+                currentItems.value = data;
+                onItemChange(); // Default select
+            } else {
+                currentItems.value = data.items || [];
+                const savedIndex = data.currentIndex;
+                const savedVar = data.currentVar;
+
+                if (savedIndex !== undefined && savedIndex !== -1) {
+                    currentItemIndex.value = savedIndex;
+                    currentVarID.value = savedVar || 1;
+                } else {
+                    currentItemIndex.value = -1; // Nic
+                }
+            }
+        };
+
+        const changeItem = (dir) => {
+            if (currentItems.value.length === 0) return;
+            
+            let newIndex = currentItemIndex.value + dir;
+            // Cyklování včetně -1 (nic)
+            if (newIndex < -1) newIndex = currentItems.value.length - 1;
+            else if (newIndex >= currentItems.value.length) newIndex = -1;
+
+            currentItemIndex.value = newIndex;
+            // Při změně itemu resetovat variantu
+            currentVarID.value = 1;
+            onItemChange();
+        };
+
+        const onItemChange = () => {
+            if (currentItemIndex.value === -1) {
+                // Remove item
+                postData('removeItem', { category: currentCategory.value });
+            } else {
+                // Apply item
+                sendApplyItem();
+            }
+        };
+
+        const changeVariant = (dir) => {
+            if (currentItemIndex.value === -1) return;
+            
+            let max = maxVariants.value;
+            let newVal = currentVarID.value + dir;
+            
+            if (newVal < 1) newVal = max;
+            if (newVal > max) newVal = 1;
+            
+            currentVarID.value = newVal;
+            onVariantChange();
+        };
+
+        const onVariantChange = () => {
+            sendApplyItem();
+        };
+
+        const sendApplyItem = () => {
+            postData('applyItem', {
+                category: currentCategory.value,
+                index: currentItemIndex.value + 1, // +1 pro Lua
+                varID: currentVarID.value
+            });
+        };
+
+        const applyPalette = () => {
+            postData('changePalette', { category: currentCategory.value, palette: selectedPalette.value });
+        };
+
+        const applyTint = () => {
+            postData('changeTint', { 
+                category: currentCategory.value, 
+                tint0: tints[0], tint1: tints[1], tint2: tints[2] 
+            });
+        };
+
+        const removeItem = () => {
+            currentItemIndex.value = -1;
+            onItemChange();
+        };
+
+        // === GLOBAL ACTIONS ===
+        const resetToNaked = () => {
+            postData('resetToNaked', {}).then(() => {
+                initBodyMenu(Object.keys(bodyStates)); // Reload body
+                if(currentCategory.value) selectCategory(currentCategory.value); // Reload cat
+            });
+        };
+
+        const refreshPed = () => postData('refresh', {});
+
+        const saveClothes = () => {
+            postData('saveClothes', { CreatorMode: isCreatorMode.value });
+            closeMenu();
+        };
+
+        const closeMenu = () => {
+            isVisible.value = false;
+            postData('closeClothingMenu', {});
+        };
+
+        // === CAMERA LOGIC ===
+        const handleMouseDown = (e) => {
+            // Ignorujeme, pokud klikáme na panel (zajištěno @mousedown.stop v HTML)
+            if (e.button === 0) { mouseState.isLeftDown = true; mouseState.lastX = e.clientX; }
+            else if (e.button === 2) { mouseState.isRightDown = true; mouseState.lastY = e.clientY; }
+        };
+
+        const handleMouseUp = () => {
+            mouseState.isLeftDown = false;
+            mouseState.isRightDown = false;
+        };
+
+        const handleMouseMove = (e) => {
+            if (!isVisible.value) return;
+
+            if (mouseState.isLeftDown) {
+                let deltaX = e.clientX - mouseState.lastX;
+                mouseState.lastX = e.clientX;
+                postData('rotateCharacter', { x: deltaX });
+            }
+            if (mouseState.isRightDown) {
+                let deltaY = e.clientY - mouseState.lastY;
+                mouseState.lastY = e.clientY;
+                postData('moveCameraHeight', { y: deltaY });
+            }
+        };
+
+        const handleWheel = (e) => {
+            if (!isVisible.value) return;
+            // Ignorujeme wheel na panelech (zajištěno @wheel.stop v HTML)
+            let dir = e.deltaY > 0 ? "out" : "in";
+            postData('zoomCamera', { dir: dir });
+        };
+
+        // LIFECYCLE
+        onMounted(() => {
+            // NUI Listener
+            window.addEventListener('message', (event) => {
+                const data = event.data;
+                if (data.action === "openClothingMenu") {
+                    isVisible.value = true;
+                    gender.value = data.gender;
+                    isCreatorMode.value = data.creatorMode;
+                    menuData.value = data.menuData;
+                    
+                    currentCategory.value = null; // Reset selection
+                    
+                    if (data.bodyCategories) {
+                        initBodyMenu(data.bodyCategories);
+                    }
+                }
+            });
+
+            // Input Listeners
+            document.addEventListener('keyup', (e) => {
+                if (e.which === 27 && !isCreatorMode.value && isVisible.value) closeMenu();
+            });
+
+            document.addEventListener('contextmenu', e => e.preventDefault());
+            document.addEventListener('mousedown', handleMouseDown);
+            document.addEventListener('mouseup', handleMouseUp);
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('wheel', handleWheel);
+        });
+
+        return {
+            isVisible, isCreatorMode, menuData, bodyStates,
+            currentCategory, currentCategoryLabel,
+            currentItems, currentItemIndex, currentVarID,
+            maxItems, maxVariants,
+            palettes, selectedPalette, tints,
+            // Metody
+            closeMenu, selectCategory, formatBodyLabel, formatPaletteName,
+            changeBodyItem, updateBodyItem,
+            changeItem, onItemChange, changeVariant, onVariantChange,
+            applyPalette, applyTint, removeItem,
+            resetToNaked, refreshPed, saveClothes
+        };
     }
-}
-
-function resetToNaked() {
-    $.post(`https://${GetParentResourceName()}/resetToNaked`, JSON.stringify({}), function() {
-        if (bodyState["bodies_upper"]) fetchBodyData("bodies_upper");
-        if (bodyState["bodies_lower"]) fetchBodyData("bodies_lower");
-
-        if (currentCategory) {
-            loadCategoryData(currentCategory);
-        }
-    });
-}
-
-function refreshPed() {
-    $.post(`https://${GetParentResourceName()}/refresh`, JSON.stringify({}));
-}
+}).mount('#app');

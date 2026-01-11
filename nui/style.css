@@ -1,6 +1,22 @@
+:root {
+    --bg-dark: rgba(15, 15, 15, 0.95);
+    --bg-panel: rgba(25, 25, 25, 0.9);
+    --rdr-red: #8a0b0b;
+    --rdr-red-hover: #a81010;
+    --text-main: #e0e0e0;
+    --text-muted: #9e9e9e;
+    --gold: #d4af37;
+    --border-color: rgba(255, 255, 255, 0.15);
+    --font-head: 'Rye', serif;
+    --font-body: 'Roboto', sans-serif;
+}
+
+[v-cloak] { display: none; }
+
 * {
     box-sizing: border-box;
     user-select: none;
+    outline: none;
 }
 
 body {
@@ -9,275 +25,195 @@ body {
     width: 100vw;
     height: 100vh;
     overflow: hidden;
-    font-family: 'Roboto', sans-serif;
-    /* Menu bude zarovnané doprava */
-    display: flex;
-    justify-content: flex-end; 
-    align-items: center;
-    padding-right: 50px; /* Odsazení od pravého okraje */
+    font-family: var(--font-body);
+    color: var(--text-main);
 }
 
-/* Hlavní kontejner - úzký sloupec */
-.container {
-    width: 350px;
-    height: 85vh; 
-    background: radial-gradient(circle, rgba(20,20,20,0.96) 0%, rgba(10,10,10,0.92) 100%);
-    border: 2px solid #5c5c5c;
-    border-radius: 5px;
+.ui-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none; /* Propouští klikání pro kameru */
+}
+
+/* === PANELY === */
+.panel {
+    pointer-events: auto; /* Zachytává klikání na menu */
+    background: var(--bg-dark);
+    border: 2px solid #444;
+    border-radius: 4px;
     display: flex;
     flex-direction: column;
-    color: #e0e0e0;
-    box-shadow: 0 0 20px rgba(0,0,0,0.8);
-    position: relative;
+    box-shadow: 0 0 25px rgba(0,0,0,0.8);
+    backdrop-filter: blur(5px);
+    margin: 50px;
+    z-index: 1000;
 }
 
-.header {
-    height: 55px;
-    background: #8a0000; /* Red Dead Red */
+.panel-header {
+    background: linear-gradient(180deg, var(--rdr-red) 0%, #5a0000 100%);
+    padding: 10px 15px;
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    padding: 0 15px;
-    border-bottom: 2px solid #333;
+    align-items: center;
+    border-bottom: 2px solid #000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
     flex-shrink: 0;
 }
 
-.header h1 {
-    font-family: 'Rye', serif;
-    font-size: 24px;
-    color: #fff;
+.panel-header h1, .panel-header h2 {
+    font-family: var(--font-head);
     margin: 0;
+    font-size: 22px;
+    color: #fff;
     text-shadow: 2px 2px 0 #000;
+    letter-spacing: 1px;
 }
 
 .close-btn {
-    background: transparent;
+    background: none;
     border: none;
     color: #fff;
-    font-size: 24px;
+    font-size: 20px;
     cursor: pointer;
-    font-weight: bold;
+    opacity: 0.8;
     transition: 0.2s;
 }
-.close-btn:hover { color: #ccc; }
+.close-btn:hover { opacity: 1; transform: scale(1.1); }
 
-.content-wrapper {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    overflow: hidden;
-}
+/* Velikosti panelů */
+.body-panel { width: 300px; max-height: 80vh; }
+.clothing-panel { width: 400px; height: 85vh; }
 
-/* --- Seznam kategorií --- */
-.category-list {
+.scroll-content {
     flex: 1;
     overflow-y: auto;
-    border-bottom: 1px solid #444;
-}
-
-/* Styl pro nadpis sekce (např. TORSO) */
-.menu-header {
-    background: #1a1a1a;
-    color: #8a0000;
-    font-family: 'Rye', serif;
-    padding: 12px 15px 5px 15px;
-    font-size: 14px;
-    border-bottom: 1px solid #333;
-    text-shadow: 1px 1px 0 #000;
-    pointer-events: none;
-    margin-top: 5px;
-}
-.menu-header:first-child { margin-top: 0; }
-
-/* Úprava tlačítek kategorií */
-.cat-btn {
-    padding: 10px 15px 10px 25px;
-    border-bottom: 1px solid #2a2a2a;
-    background: transparent;
-    cursor: pointer;
-    font-size: 13px;
-    color: #ccc;
-    transition: 0.2s;
-    text-transform: capitalize;
-}
-
-.cat-btn:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-    padding-left: 30px;
-}
-
-.cat-btn.active {
-    background: rgba(138, 0, 0, 0.2);
-    color: #d4af37;
-    font-weight: bold;
-    border-left: 4px solid #d4af37;
-    padding-left: 21px;
-}
-
-/* --- Editor Panel (Spodní část) --- */
-.editor-panel {
-    height: auto;
-    min-height: 200px;
-    background: rgba(0,0,0,0.4);
-    padding: 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    border-top: 2px solid #d4af37;
-}
-
-.editor-title {
-    font-family: 'Rye', serif;
-    color: #d4af37;
-    text-align: center;
-    margin: 0 0 5px 0;
-    font-size: 18px;
-    border-bottom: 1px solid #444;
-    padding-bottom: 8px;
-}
-
-/* Ovládací prvky */
-.control-row {
-    display: flex;
-    flex-direction: column;
-}
-
-.control-row label {
-    font-size: 12px;
-    color: #aaa;
-    margin-bottom: 4px;
-    font-weight: bold;
-}
-
-.stepper {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid #444;
-    border-radius: 3px;
-    padding: 2px;
-}
-
-.stepper button {
-    background: #333;
-    border: none;
-    color: #fff;
-    width: 35px;
-    height: 30px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: 0.2s;
-}
-.stepper button:hover { background: #555; }
-
-.stepper span {
-    font-size: 14px;
-    font-family: 'Roboto', sans-serif;
-    font-weight: bold;
-}
-
-select {
-    width: 100%;
-    padding: 6px;
-    background: #222;
-    color: #fff;
-    border: 1px solid #555;
-    font-size: 13px;
-    border-radius: 3px;
-}
-
-input[type=range] {
-    width: 100%;
-    height: 6px;
-    accent-color: #8a0000;
-    margin-bottom: 3px;
-    cursor: pointer;
-}
-
-.buttons-row {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.btn {
-    flex: 1;
     padding: 10px;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-    font-family: 'Rye', serif;
-    font-size: 13px;
-    color: white;
-    text-shadow: 1px 1px 0 #000;
-    border-radius: 3px;
 }
-
-.btn-remove { background: #600; border: 1px solid #900; }
-.btn-save { background: #060; border: 1px solid #090; }
-.btn:hover { opacity: 0.8; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #1a1a1a; }
-::-webkit-scrollbar-thumb { background: #8a0000; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--rdr-red); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--rdr-red-hover); }
 
-/* Levé fixní menu */
-.body-container {
-    position: absolute;
-    top: 50px;
-    left: 50px;
-    width: 280px;
-    background: radial-gradient(circle, rgba(20,20,20,0.96) 0%, rgba(10,10,10,0.92) 100%);
-    border: 2px solid #5c5c5c;
-    border-radius: 5px;
-    padding: 10px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.8);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    color: #e0e0e0;
-}
-
-.header-small {
-    border-bottom: 2px solid #8a0000;
-    padding-bottom: 5px;
+/* === LIST KATEGORIÍ === */
+.menu-header {
+    font-family: var(--font-head);
+    color: var(--gold);
+    font-size: 14px;
+    padding: 15px 5px 5px 5px;
+    border-bottom: 1px solid var(--border-color);
     margin-bottom: 5px;
+    text-transform: uppercase;
     text-align: center;
 }
 
-.header-small h2 {
-    font-family: 'Rye', serif;
-    font-size: 18px;
-    margin: 0;
-    color: #d4af37;
-    text-shadow: 1px 1px 0 #000;
-}
-
-/* Řádek ovládání těla */
-.body-row {
-    margin-bottom: 10px;
-}
-
-.body-row label {
-    font-size: 12px;
-    color: #aaa;
-    display: block;
+.cat-btn {
+    padding: 12px 15px;
     margin-bottom: 4px;
-    font-weight: bold;
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    border-radius: 0 4px 4px 0;
+}
+.cat-btn:hover { background: rgba(255,255,255,0.08); padding-left: 20px; }
+.cat-btn.active {
+    background: linear-gradient(90deg, rgba(138, 11, 11, 0.4) 0%, transparent 100%);
+    border-left: 3px solid var(--rdr-red);
+    color: var(--gold);
+    font-weight: 500;
+}
+
+/* === EDITOR === */
+.editor-section {
+    background: rgba(0,0,0,0.3);
+    border-top: 2px solid var(--gold);
+    padding: 15px;
+    flex-shrink: 0;
+}
+
+.editor-header h3 {
+    font-family: var(--font-head);
+    color: var(--gold);
+    text-align: center;
+    margin: 0 0 15px 0;
+    font-size: 18px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 5px;
+}
+
+.control-group { margin-bottom: 15px; }
+
+.label-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
     text-transform: uppercase;
 }
 
-/* Tlačítka dole */
-.body-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 5px;
-    border-top: 1px solid #333;
-    padding-top: 10px;
-}
+.value-display { color: var(--gold); font-family: monospace; }
 
-.btn-reset { background: #8a4400; border: 1px solid #b85c00; }
-.btn-refresh { background: #333; border: 1px solid #555; }
+.slider-row { display: flex; align-items: center; gap: 10px; }
+
+.nav-arrow {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #fff;
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s;
+}
+.nav-arrow:hover { background: var(--rdr-red); border-color: var(--rdr-red); }
+.nav-arrow:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Range Slider */
+input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    background: transparent;
+    height: 20px;
+    cursor: pointer;
+}
+input[type=range]::-webkit-slider-runnable-track {
+    width: 100%; height: 6px; background: #333; border-radius: 3px; border: 1px solid #555;
+}
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%;
+    background: var(--gold); margin-top: -7px; box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    border: 2px solid #5a4400; transition: transform 0.1s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); background: #fff; }
+input[type=range]:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Tints & Selects & Buttons - zachováno z předchozího */
+.tints-group { margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px; }
+.tints-group label { font-size: 11px; color: #888; display: block; margin-bottom: 5px; }
+.tint-sliders { display: flex; flex-direction: column; gap: 5px; }
+.tint-range { height: 15px; }
+.tint-range::-webkit-slider-runnable-track { height: 4px; }
+.tint-range::-webkit-slider-thumb { height: 14px; width: 14px; margin-top: -6px; }
+
+.rdr-select { width: 100%; background: #222; color: #fff; border: 1px solid #555; padding: 8px; font-family: var(--font-body); border-radius: 3px; }
+.rdr-select:hover { border-color: var(--gold); }
+.rdr-select:disabled { opacity: 0.5; }
+
+.action-buttons, .panel-footer { display: flex; gap: 10px; margin-top: 10px; }
+.btn { flex: 1; padding: 10px; border: none; border-radius: 3px; font-family: var(--font-head); font-size: 14px; cursor: pointer; text-transform: uppercase; color: #fff; transition: 0.2s; }
+.btn-primary { background: #2b2b2b; border: 1px solid #555; } .btn-primary:hover { background: #444; border-color: #fff; }
+.btn-secondary { background: #3a2500; border: 1px solid #5e3c00; } .btn-secondary:hover { background: #5e3c00; }
+.btn-confirm { background: linear-gradient(180deg, #1f4a1f 0%, #0e2e0e 100%); border: 1px solid #2e5e2e; } .btn-confirm:hover { background: #2e5e2e; }
+.btn-danger { background: linear-gradient(180deg, #6e0000 0%, #440000 100%); border: 1px solid #8a0b0b; } .btn-danger:hover { background: #8a0b0b; }
