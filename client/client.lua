@@ -1,11 +1,12 @@
 -- local Prompt = nil
 -- local promptGroup = GetRandomIntInRange(0, 0xffffff)
-
 PlayerClothes = {}
 ClothesCache = {}
 dataReady = false
-OriginalBody = {} 
+OriginalBody = {}
 MenuOpen = false -- OPRAVA: Globální proměnná pro stav menu
+Camera = nil
+camHeight = 0.6
 Progressbar = exports["vorp_progressbar"]:initiate()
 playingAnimation = false -- OPRAVA: sjednoceno malé p
 
@@ -42,7 +43,7 @@ function round(num)
 end
 
 function hasJob(jobtable)
-    if not jobtable or  table.count(jobtable) == 0 then
+    if not jobtable or table.count(jobtable) == 0 then
         return true
     end
     local pjob = LocalPlayer.state.Character.Job
@@ -66,11 +67,11 @@ function SafeExport(resourceName, functionName, defaultReturn, ...)
     if success then
         return result
     else
-        debugPrint("^1[ERROR]^7 Export failed: " .. resourceName .. ":" .. functionName .. " Error: " .. tostring(result))
+        debugPrint("^1[ERROR]^7 Export failed: " .. resourceName .. ":" .. functionName .. " Error: " ..
+                       tostring(result))
         return defaultReturn
     end
 end
-
 
 function playAnim(entity, dict, name, flag, time)
     playingAnimation = true -- OPRAVA: malé p
@@ -186,39 +187,80 @@ function DisableActions(ped)
     Citizen.InvokeNative(0xFE99B66D079CF6BC, 0, 0xADEAF48C, true) -- disable melee
 end
 
+-- ... (předchozí kód zůstává stejný)
 
-function OpenMenu(menu,creator)
+function OpenMenu(menu, creator)
     SetNuiFocus(true, true)
     MenuOpen = true
-    
+
     local ped = PlayerPedId()
     local gender = "male"
     if not IsPedMale(ped) then
-        gender  = "female"
+        gender = "female"
     end
 
     OriginalBody = {
         bodies_upper = GetIndexFromMeta("bodies_upper", ped),
-        bodies_lower = GetIndexFromMeta("bodies_lower", ped),
+        bodies_lower = GetIndexFromMeta("bodies_lower", ped)
     }
-    
-    -- Pro jistotu si to i zalogujeme do konzole (F8), abys viděl, co se načetlo
-    -- print("Načteno původní tělo - Upper: " .. tostring(OriginalBody.bodies_upper) .. ", Lower: " .. tostring(OriginalBody.bodies_lower))
-    -- ==========================================================
-    
+
     local menuData = GetStructuredMenu(menu)
-    
+
     SendNUIMessage({
         action = "openClothingMenu",
-        menuData = menuData, 
+        menuData = menuData,
         gender = gender,
         bodyCategories = Config.BodyCategories,
-        creatorMode = creator
+        creatorMode = creator -- Předáváme informaci do JS
     })
 end
+
+
+function UpdateCameraPosition()
+    if not Camera or not DoesCamExist(Camera) then
+        return
+    end
+    local ped = PlayerPedId()
+    local coords = GetEntityCoords(ped)
+    local anchorHeading = Config.Camera.heading or 93.2
+    local rad = math.rad(anchorHeading)
+
+    local camX = coords.x + (math.sin(rad) * -camDistance)
+    local camY = coords.y + (math.cos(rad) * camDistance)
+    local camZ = coords.z + camHeight
+
+    SetCamCoord(Camera, camX, camY, camZ)
+    local lookAtZ = coords.z + (camHeight * 0.9)
+    PointCamAtCoord(Camera, coords.x, coords.y, lookAtZ)
+end
+
+
+function initScene()
+    Camera = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
+    SetCamActive(Camera, true)
+    RenderScriptCams(true, false, 0, true, true)
+    SetCamFov(Camera, defaultFov)
+end
+-- UPRAVENÝ EXPORT
 exports("creator", function()
+    -- 1. Resetujeme stav
+    dataReady = false
+
+    -- 2. Otevřeme menu v Creator módu
+    OpenMenu(Config.ClothingMenu, true)
+
+    -- 3. Čekáme, dokud hráč neklikne na "Uložit" (dataReady se naplní v nui.lua)
     while not dataReady do
         Citizen.Wait(100)
     end
-    return PlayerClothes
+
+    -- 4. Uložíme si výsledek
+    local result = dataReady
+
+    -- 5. Resetujeme pro další použití
+    dataReady = false
+
+    -- 6. Vrátíme oblečení
+    return result
 end)
+

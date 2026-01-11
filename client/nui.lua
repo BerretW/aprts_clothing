@@ -97,11 +97,52 @@ end)
 
 RegisterNuiCallback("saveClothes", function(data, cb)
     if data.CreatorMode then
+        -- Tady naplníme dataReady, což ukončí while smyčku v client.lua (exportu)
         dataReady = PlayerClothes
     else
         TriggerServerEvent("aprts_clothing:Server:saveClothes", PlayerClothes)
     end
     notify("Oblečení bylo uloženo.")
 
+    cb('ok')
+end)
+
+
+RegisterNUICallback('rotateCharacter', function(data, cb)
+    local ped = PlayerPedId()
+    if inMurphy then
+        cb('ok')
+        return
+    end
+    SetEntityHeading(ped, GetEntityHeading(ped) + (data.x * 0.3))
+    cb('ok')
+end)
+
+RegisterNUICallback('moveCameraHeight', function(data, cb)
+    camHeight = camHeight - (data.y * 0.005)
+    if camHeight < limits.minHeight then
+        camHeight = limits.minHeight
+    end
+    if camHeight > limits.maxHeight then
+        camHeight = limits.maxHeight
+    end
+    UpdateCameraPosition()
+    cb('ok')
+end)
+
+RegisterNUICallback('zoomCamera', function(data, cb)
+    local step = 0.2
+    if data.dir == "in" then
+        camDistance = camDistance - step
+    else
+        camDistance = camDistance + step
+    end
+    if camDistance < limits.minDist then
+        camDistance = limits.minDist
+    end
+    if camDistance > limits.maxDist then
+        camDistance = limits.maxDist
+    end
+    UpdateCameraPosition()
     cb('ok')
 end)

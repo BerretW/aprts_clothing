@@ -1,8 +1,9 @@
 let currentCategory = null;
 let currentItems = [];
-let currentItemIndex = -1; // -1 = Nic (Svlečeno), 0 = První item
-let currentVarID = 1;      // Lua počítá od 1
+let currentItemIndex = -1; 
+let currentVarID = 1;      
 let gender = "male";
+let isCreatorMode = false; // PŘIDÁNO: Proměnná pro stav módu
 
 let bodyState = {};
 
@@ -25,6 +26,7 @@ $(document).ready(function() {
         if (data.action === "openClothingMenu") {
             $("#clothing-menu").fadeIn(200);
             gender = data.gender;
+            isCreatorMode = data.creatorMode; // PŘIDÁNO: Uložení stavu
             
             setupStructuredCategories(data.menuData);
 
@@ -35,18 +37,25 @@ $(document).ready(function() {
             currentCategory = null;
             $("#editor-panel").hide();
             $(".cat-btn").removeClass("active");
+            
+            // Volitelné: Skrýt křížek pro zavření, pokud je to Creator Mode (hráč musí uložit)
+            if (isCreatorMode) {
+                $(".close-btn").hide();
+            } else {
+                $(".close-btn").show();
+            }
         }
     });
 
     document.onkeyup = function(data) {
-        if (data.which == 27) closeMenu();
+        // V creator módu zakážeme zavření přes ESC, pokud to tak chceš
+        if (data.which == 27 && !isCreatorMode) closeMenu();
     };
 });
 
 function closeMenu() {
     $("#clothing-menu").fadeOut(200);
     $("#body-menu").fadeOut(200);
-    // OPRAVA: Použity backticks `` pro správnou interpolaci stringu
     $.post(`https://${GetParentResourceName()}/closeClothingMenu`, JSON.stringify({}));
 }
 
@@ -235,8 +244,11 @@ function applyTint() {
 }
 
 function saveClothes() {
-    // OPRAVA: Backticks
-    $.post(`https://${GetParentResourceName()}/saveClothes`, JSON.stringify({}));
+    // Posíláme zpět informaci, zda jsme v CreatorMode
+    $.post(`https://${GetParentResourceName()}/saveClothes`, JSON.stringify({
+        CreatorMode: isCreatorMode
+    }));
+    
     closeMenu();
 }
 
