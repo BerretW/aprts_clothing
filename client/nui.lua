@@ -135,25 +135,35 @@ RegisterNuiCallback('closeClothingMenu', function(data, cb)
     if not data.saved then
         if ClothesCache then
             local ped = PlayerPedId()
+            
+            -- 1. SEZNAM K ODSTRANĚNÍ
+            -- Nejdřív zjistíme, co máme na sobě navíc oproti Cache
+            -- Nemůžeme to mazat rovnou v cyklu, protože by to rozbilo iteraci
+            local categoriesToRemove = {}
 
-            -- 1. NEJDŘÍV SVLÉKNOUT VŠE, CO NENÍ V CACHE
-            -- Projdeme aktuální 'špinavé' PlayerClothes (to co máme na sobě z editoru)
             for category, _ in pairs(PlayerClothes) do
-                -- Pokud tato kategorie nebyla v původní záloze, musíme ji sundat
-                if not ClothesCache[category] then
-                    RemoveTagFromMetaPed(category, ped)
+                -- Pokud kategorie v Cache vůbec není (je nil), znamená to, že jsme ji přidali v editoru
+                if ClothesCache[category] == nil then
+                    table.insert(categoriesToRemove, category)
                 end
             end
+
+            -- 2. ODSTRANĚNÍ
+            -- Teď bezpečně smažeme vše, co jsme našli
+            for _, category in ipairs(categoriesToRemove) do
+                -- Toto zavolá nativku na odstranění a nastaví PlayerClothes[category] = nil
+                RemoveTagFromMetaPed(category, ped)
+            end
             
-            -- 2. OBNOVIT PŮVODNÍ STAV
+            -- 3. OBNOVENÍ PŮVODNÍCH VĚCÍ
+            -- Aplikujeme zpět to, co bylo v Cache (přepíše změněné, oblékne svlečené)
             DressDataToPed(ped, ClothesCache)
             
-            -- 3. VRÁTIT PROMĚNNOU ZPĚT
-            -- Tady musíme opět udělat DeepCopy, aby se přerušila vazba, 
-            -- jinak by budoucí změny PlayerClothes měnily i ClothesCache
+            -- 4. VRÁCENÍ PROMĚNNÉ ZPĚT
+            -- Obnovíme globální proměnnou ze zálohy
             PlayerClothes = DeepCopy(ClothesCache)
             
-            -- Aktualizace variací peda (pro jistotu)
+            -- Finální aktualizace vzhledu
             UpdatePedVariation(ped)
         end
         notify("Změny byly zrušeny.")
