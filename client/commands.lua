@@ -336,3 +336,7 @@ RegisterCommand("overlay", function(source, args, rawCommand)
     data.tint2 = 40
     jo.pedTexture.apply(ped, layername, data)
 end, false)
+
+RegisterCommand("makeup", function(source, args, rawCommand)
+    OpenOverlayMenu()
+end, false)

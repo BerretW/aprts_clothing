@@ -506,6 +506,44 @@ RegisterNUICallback('applyOverlayChange', function(data, cb)
     cb('ok')
 end)
 
--- Uprav existující saveClothes callback, aby ukládal i Overlaye
--- (Musíš sloučit PlayerClothes a PlayerOverlays do jednoho objektu pro DB,
---  nebo mít v DB dva sloupce. Doporučuji sloučit.)
+RegisterNUICallback('getOverlayMenu', function(data, cb)
+    local menuData = GetOverlayMenuData()
+    cb(menuData)
+end)
+
+RegisterNUICallback('applyOverlayChange', function(data, cb)
+    local ped = PlayerPedId()
+    local layer = data.layer
+    local index = tonumber(data.index)
+    local palette = data.palette
+    
+    local t0 = tonumber(data.tint0)
+    local t1 = tonumber(data.tint1)
+    local t2 = tonumber(data.tint2)
+    
+    -- Nové parametry
+    local opacity = tonumber(data.opacity) or 1.0 
+    local sheetGrid = tonumber(data.sheetGrid) or 0
+    local blendType = tonumber(data.blendType) or 1
+
+    -- Předáme vše do funkce overlaye
+    ApplyOverlayToPed(ped, layer, index, palette, t0, t1, t2, opacity, sheetGrid, blendType)
+    cb('ok')
+end)
+
+RegisterNUICallback('resetOverlayLayer', function(data, cb)
+    local ped = PlayerPedId()
+    local layer = data.layer
+
+    -- 1. Použití knihovny pro odstranění textury
+    if jo.pedTexture.remove then
+        jo.pedTexture.remove(ped, layer)
+    end
+
+    -- 2. Vyčištění cache hráče pro tuto vrstvu
+    if PlayerOverlays[layer] then
+        PlayerOverlays[layer] = nil
+    end
+
+    cb('ok')
+end)

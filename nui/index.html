@@ -15,20 +15,19 @@
 <body>
 
     <div id="app" v-cloak>
-        <!-- Zobrazíme jen pokud je menu aktivní -->
         <div v-if="isVisible" class="ui-wrapper">
 
             <!-- ================================================================= -->
-            <!-- LEVÉ MENU: TĚLO & OVLÁDÁNÍ -->
+            <!-- 1. LEVÉ MENU: TĚLO & OVLÁDÁNÍ (Zobrazí se jen u Oblečení) -->
             <!-- ================================================================= -->
-            <div v-if="isVisible && showBodyPanel" class="panel body-panel" @mousedown.stop @wheel.stop>
+            <div v-if="showBodyPanel" class="panel body-panel" @mousedown.stop @wheel.stop>
                 <div class="panel-header">
                     <h2>TĚLO & TVARY</h2>
                 </div>
 
                 <div class="scroll-content">
                     <div v-for="(state, cat) in bodyStates" :key="cat" class="control-group">
-                        <!-- Původní slider pro Model -->
+                        <!-- Slider pro Model části těla -->
                         <div class="label-row">
                             <label>{{ formatBodyLabel(cat) }}</label>
                             <span class="value-display">{{ state.index + 1 }} / {{ state.max }}</span>
@@ -61,22 +60,17 @@
                     <button class="btn btn-secondary" @click="resetToNaked">SVLÉKNOUT</button>
                     <button class="btn btn-primary" @click="refreshPed">OBNOVIT</button>
                     
-                    <!-- PŘEPÍNAČ MEZI OBLEČENÍM A OVERLAYEM -->
-                    <button class="btn btn-secondary" style="border: 1px solid #d4af37; color: #d4af37;" @click="toggleOverlayMode">
-                        {{ showOverlayPanel ? 'ZPĚT K OBLEČENÍ' : 'MAKE-UP / VZHLED' }}
-                    </button>
-
-                    <template v-if="!showClothingPanel && !showOverlayPanel && !isCreatorMode">
-                        <button class="btn btn-confirm" @click="saveBodyChanges">ULOŽIT</button>
-                        <button class="btn btn-danger" @click="closeMenu">ZRUŠIT</button>
+                    <template v-if="!isCreatorMode">
+                        <button class="btn btn-confirm" @click="saveClothes('character')">ULOŽIT</button>
+                        <button class="btn btn-danger" @click="closeMenu">ZAVŘÍT</button>
                     </template>
                 </div>
             </div>
 
             <!-- ================================================================= -->
-            <!-- PRAVÉ MENU: OBLEČENÍ (Klasický šatník) -->
+            <!-- 2. PRAVÉ MENU: OBLEČENÍ (Klasický šatník) -->
             <!-- ================================================================= -->
-            <div v-if="isVisible && showClothingPanel" class="panel clothing-panel" @mousedown.stop @wheel.stop>
+            <div v-if="showClothingPanel" class="panel clothing-panel" @mousedown.stop @wheel.stop>
                 <div class="panel-header">
                     <h1>ŠATNÍK</h1>
                     <button class="close-btn" v-if="!isCreatorMode" @click="closeMenu">✕</button>
@@ -166,14 +160,15 @@
             </div>
 
             <!-- ================================================================= -->
-            <!-- NOVÉ MENU: OVERLAY (Make-up, Jizvy, Detaily) -->
+            <!-- 3. SAMOSTATNÉ MENU: OVERLAY (Make-up, Jizvy, Detaily) -->
             <!-- ================================================================= -->
-            <div v-if="isVisible && showOverlayPanel" class="panel clothing-panel" @mousedown.stop @wheel.stop>
+            <div v-if="showOverlayPanel" class="panel clothing-panel" @mousedown.stop @wheel.stop>
                 <div class="panel-header">
                     <h1>MAKE-UP & VZHLED</h1>
-                    <button class="close-btn" v-if="!isCreatorMode" @click="closeMenu">✕</button>
+                    <button class="close-btn" @click="closeMenu">✕</button>
                 </div>
 
+                <!-- Seznam vrstev -->
                 <div class="scroll-content category-list">
                     <div v-for="layer in overlayMenuData" :key="layer.id" 
                          class="cat-btn" 
@@ -183,13 +178,15 @@
                     </div>
                 </div>
 
+                <!-- Editor vybrané vrstvy -->
                 <div v-if="currentOverlayCat" class="editor-section">
                     <div class="editor-header">
                         <h3>{{ getOverlayLabel(currentOverlayCat) }}</h3>
                     </div>
 
                     <div class="controls-wrapper">
-                        <!-- Výběr textury -->
+                        
+                        <!-- 1. Styl / Textura -->
                         <div class="control-group">
                             <div class="label-row">
                                 <label>Styl / Textura</label>
@@ -197,12 +194,7 @@
                             </div>
                             <div class="slider-row">
                                 <button class="nav-arrow" @click="changeOverlayItem(-1)">❮</button>
-                                <!-- Range: 0 až Max (0 = Vypnuto) -->
-                                <input type="range" 
-                                       v-model.number="currentOverlayState.index" 
-                                       :max="getCurrentOverlayMax()" 
-                                       min="0"
-                                       @input="updateOverlay">
+                                <input type="range" v-model.number="currentOverlayState.index" :max="getCurrentOverlayMax()" min="0" @input="updateOverlay">
                                 <button class="nav-arrow" @click="changeOverlayItem(1)">❯</button>
                             </div>
                             <div style="text-align: center; font-size: 11px; color: #aaa; margin-top: 2px; font-style: italic;">
@@ -210,7 +202,7 @@
                             </div>
                         </div>
 
-                        <!-- Paleta -->
+                        <!-- 2. Paleta -->
                         <div class="control-group">
                             <label>Paleta Barvy</label>
                             <select v-model="currentOverlayState.palette" @change="updateOverlay" class="rdr-select">
@@ -218,25 +210,53 @@
                             </select>
                         </div>
 
-                        <!-- Tints (Sliders pro Overlay) -->
+                        <!-- 3. TECHNICKÉ PARAMETRY (Opacity, Grid, Blend) -->
+                        <div class="control-group" style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; margin-bottom: 10px;">
+                            
+                            <!-- Opacity -->
+                            <div class="label-row" style="margin-top:5px;">
+                                <label>Průhlednost (Opacity)</label>
+                                <span class="value-display">{{ currentOverlayState.opacity }}%</span>
+                            </div>
+                            <input type="range" class="tint-range" v-model.number="currentOverlayState.opacity" min="0" max="100" @input="updateOverlay">
+
+                            <!-- Sheet Grid -->
+                            <!-- <div class="label-row" style="margin-top:10px;">
+                                <label>Pozice (Sheet Grid)</label>
+                                <span class="value-display">{{ currentOverlayState.sheetGrid }}</span>
+                            </div>
+                            <input type="range" class="tint-range" v-model.number="currentOverlayState.sheetGrid" min="0" max="10" @input="updateOverlay"> -->
+
+                            <!-- Blend Type -->
+                            <!-- <div class="label-row" style="margin-top:10px;">
+                                <label>Režim (Blend Type)</label>
+                                <span class="value-display">{{ currentOverlayState.blendType }}</span>
+                            </div>
+                            <input type="range" class="tint-range" v-model.number="currentOverlayState.blendType" min="0" max="3" @input="updateOverlay"> -->
+                        </div>
+
+                        <!-- 4. TINTS -->
                         <div class="tints-group">
-                            <label>Sytost / Průhlednost (Tint 0)</label>
+                            <label>Tint 0 (Barva / Stín)</label>
                             <input type="range" class="tint-range" v-model.number="currentOverlayState.tint0" max="255" @input="updateOverlay">
                             
-                            <label>Barva / Odstín (Tint 1)</label>
+                            <label>Tint 1 (Barva / Odstín)</label>
                             <input type="range" class="tint-range" v-model.number="currentOverlayState.tint1" max="255" @input="updateOverlay">
                             
-                            <label>Detaily / Jas (Tint 2)</label>
+                            <label>Tint 2 (Detaily / Jas)</label>
                             <input type="range" class="tint-range" v-model.number="currentOverlayState.tint2" max="255" @input="updateOverlay">
                         </div>
 
-                        <div class="action-buttons" v-if="isCreatorMode">
-                             <div style="width: 100%; margin-top: 10px;">
-                                <button class="btn btn-confirm" @click="saveClothes('character')">
-                                    DOKONČIT A ULOŽIT POSTAVU
-                                </button>
+                        <!-- Akce -->
+                        <div class="action-buttons">
+                                <button class="btn btn-danger" @click="resetOverlayLayer" style="flex: 1 1 40%; margin-right: 5px;">
+        RESETOVAT VRSTVU
+    </button>
+                            <div style="width: 100%; margin-top: 10px;">
+                                <button class="btn btn-confirm" @click="saveClothes('character')">ULOŽIT VZHLED</button>
                             </div>
                         </div>
+
                     </div>
                 </div>
             </div>
@@ -246,5 +266,4 @@
 
     <script src="script.js"></script>
 </body>
-
 </html>

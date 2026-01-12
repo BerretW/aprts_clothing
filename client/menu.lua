@@ -2,24 +2,14 @@
 function OpenMenu(menu, creator, showBody, showClothes)
     SetNuiFocus(true, true)
     MenuOpen = true
-
     local ped = PlayerPedId()
     FreezeEntityPosition(ped, true)
-
-    local gender = "male"
-    if not IsPedMale(ped) then
-        gender = "female"
-    end
-
-    -- Defaultní hodnoty (pokud nejsou zadány)
+    
+    local gender = IsPedMale(ped) and "male" or "female"
     if showBody == nil then showBody = true end
     if showClothes == nil then showClothes = true end
 
-    if PlayerClothes then
-        ClothesCache = DeepCopy(PlayerClothes)
-    else
-        ClothesCache = {}
-    end
+    if PlayerClothes then ClothesCache = DeepCopy(PlayerClothes) else ClothesCache = {} end
     
     OriginalBody = {
         bodies_upper = GetIndexFromMeta("bodies_upper", ped),
@@ -27,7 +17,6 @@ function OpenMenu(menu, creator, showBody, showClothes)
     }
 
     local menuData = GetStructuredMenu(menu)
-    
     initScene()
 
     SendNUIMessage({
@@ -39,10 +28,28 @@ function OpenMenu(menu, creator, showBody, showClothes)
         isItemMode = (CurrentItemContext ~= nil),
         itemLabel = CurrentItemContext and CurrentItemContext.itemName or "",
         availableItemTypes = Config.ClothingItems,
-        
-        -- NOVÉ: Posíláme info, co zobrazit
         showBody = showBody,
         showClothes = showClothes
+    })
+end
+
+-- NOVÁ FUNKCE: Otevře pouze Overlay Menu (Make-up)
+function OpenOverlayMenu()
+    SetNuiFocus(true, true)
+    MenuOpen = true
+    local ped = PlayerPedId()
+    FreezeEntityPosition(ped, true)
+
+    initScene()
+    
+    -- ZMĚNA ZDE: Nastavíme kameru velmi blízko
+    camDistance = 0.50  -- Původně bylo 1.2 nebo 2.5. Zkus 0.5 nebo 0.4.
+    camHeight = 0.65    -- Výška očí
+    
+    UpdateCameraPosition()
+
+    SendNUIMessage({
+        action = "openOverlayMenu"
     })
 end
 

@@ -3,7 +3,9 @@ Camera = nil
 camHeight = 0.6
 camDistance = 2.5
 camHeadingOffset = 0.0
-local limits = { minDist = 0.6, maxDist = 3.5, minHeight = -0.7, maxHeight = 0.85 }
+
+-- ZMĚNA ZDE: minDist sníženo na 0.3 (původně 0.6)
+local limits = { minDist = 0.3, maxDist = 3.5, minHeight = -0.7, maxHeight = 0.85 }
 
 function initScene()
     local ped = PlayerPedId()
