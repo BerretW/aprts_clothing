@@ -10,6 +10,10 @@ createApp({
         const menuData = ref([]);
         const currentCategory = ref(null);
         
+        // Sledování změn (Dirty Flags)
+        // Používáme Set, aby se kategorie neopakovaly
+        const touchedCategories = reactive(new Set());
+        
         // Data pro tělo (levý panel)
         const bodyStates = reactive({}); 
 
@@ -76,7 +80,12 @@ createApp({
             }
         };
 
-        // --- METODY ---
+        // --- POMOCNÁ FUNKCE PRO OZNAČENÍ ZMĚNY ---
+        const markAsChanged = (cat) => {
+            if (cat) {
+                touchedCategories.add(cat);
+            }
+        };
 
         const formatBodyLabel = (cat) => {
             const map = { "bodies_upper": "Horní část těla", "bodies_lower": "Dolní část těla" };
@@ -88,16 +97,26 @@ createApp({
         };
 
         // === NOVÁ LOGIKA NÁKUPU ===
-        const purchaseItems = () => {
-            // Odešleme název a požadavek na nákup. 
-            // Lua script na straně klienta porovná změny a pošle košík na server.
-            postData('purchaseItems', { 
-                name: newOutfitName.value.trim() !== "" ? newOutfitName.value : "Oblečení"
+        const purchaseItems = async () => {
+            // Pokud nebyly provedeny žádné změny
+            if (touchedCategories.size === 0) {
+                // Můžeme poslat prázdný list, Lua to vyhodnotí a pošle notifikaci
+                // nebo to rovnou blokneme tady:
+                // return; 
+            }
+
+            // Převedeme Set na Array pro přenos do Lua
+            const changedList = Array.from(touchedCategories);
+
+            const response = await postData('purchaseItems', { 
+                name: newOutfitName.value.trim() !== "" ? newOutfitName.value : "Oblečení",
+                changedCategories: changedList
             });
             
-            // Poznámka: Zavření menu řešíme až v Lua callbacku nebo 
-            // můžeme zde, pokud chceme okamžitou odezvu.
-            // Pro jistotu zde necháme logiku na Lua (uzavře NUI po úspěšném zpracování).
+            // Pokud Lua vrátí 'ok', zavřeme menu
+            if (response === 'ok') {
+                closeMenu();
+            }
         };
 
         // === BODY LOGIC ===
@@ -134,6 +153,7 @@ createApp({
 
         const updateBodyItem = (cat) => {
             const state = bodyStates[cat];
+            markAsChanged(cat); // Změna těla
             postData('applyItem', { category: cat, index: state.index + 1, varID: 1 });
         };
 
@@ -147,7 +167,7 @@ createApp({
             
             if (Array.isArray(data)) {
                 currentItems.value = data;
-                onItemChange(); 
+                onItemChange(false); // False = neoznačovat jako změnu při načtení
             } else {
                 currentItems.value = data.items || [];
                 const savedIndex = data.currentIndex;
@@ -179,10 +199,12 @@ createApp({
 
             currentItemIndex.value = newIndex;
             currentVarID.value = 1;
-            onItemChange();
+            onItemChange(true); // User action -> Mark changed
         };
 
-        const onItemChange = () => {
+        const onItemChange = (userAction = true) => {
+            if (userAction) markAsChanged(currentCategory.value);
+            
             if (currentItemIndex.value === -1) {
                 postData('removeItem', { category: currentCategory.value });
             } else {
@@ -201,6 +223,7 @@ createApp({
         };
 
         const onVariantChange = () => {
+            markAsChanged(currentCategory.value);
             sendApplyItem();
         };
 
@@ -213,10 +236,12 @@ createApp({
         };
 
         const applyPalette = () => {
+            markAsChanged(currentCategory.value);
             postData('changePalette', { category: currentCategory.value, palette: selectedPalette.value });
         };
 
         const applyTint = () => {
+            markAsChanged(currentCategory.value);
             postData('changeTint', { 
                 category: currentCategory.value, 
                 tint0: tints[0], tint1: tints[1], tint2: tints[2] 
@@ -224,14 +249,18 @@ createApp({
         };
 
         const removeItem = () => {
+            markAsChanged(currentCategory.value);
             currentItemIndex.value = -1;
-            onItemChange();
+            onItemChange(false); // Voláme false, protože markAsChanged jsme už zavolali
         };
 
         const resetToNaked = () => {
+            // Reset to naked je drastická změna, vyčistíme trackování nebo označíme vše?
+            // V tomto případě je lepší nechat Lua vyřešit reset a my jen zavřeme/refreshneme
             postData('resetToNaked', {}).then(() => {
                 initBodyMenu(Object.keys(bodyStates));
                 if(currentCategory.value) selectCategory(currentCategory.value);
+                touchedCategories.clear(); // Reset tracking
             });
         };
 
@@ -243,11 +272,14 @@ createApp({
                 CreatorMode: isCreatorMode.value,
                 saved: true 
             });
-            isVisible.value = false;
+            // Zavření řeší callback nebo explicitně zde
+            if(type === 'character') closeMenu();
         };
 
         const closeMenu = () => {
             isVisible.value = false;
+            // Reset tracking při zavření
+            touchedCategories.clear();
             postData('closeClothingMenu', { saved: false });
         };
 
@@ -295,6 +327,7 @@ createApp({
                     
                     // Reset inputu
                     newOutfitName.value = "";
+                    touchedCategories.clear();
                     
                     // Default selection
                     currentCategory.value = null;

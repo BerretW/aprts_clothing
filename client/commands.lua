@@ -47,12 +47,11 @@ RegisterCommand("undressCat", function(source, args, rawCommand)
     RemoveTagFromMetaPed(cat, ped)
 end, false)
 
-
 RegisterCommand("printClothes", function(source, args, rawCommand)
     print(json.encode(PlayerClothes, {
         indent = true
     }))
-end, false  )
+end, false)
 
 RegisterCommand("ToggleCategory", function(source, args, rawCommand)
     local ped = PlayerPedId()
@@ -69,25 +68,64 @@ RegisterCommand("ToggleCategory", function(source, args, rawCommand)
     end
 end, false)
 
-
 RegisterCommand("saveData", function(source, args, rawCommand)
     TriggerServerEvent("aprts_clothing:Server:saveClothes", PlayerClothes)
-end, false  )
+end, false)
 
 RegisterCommand("reloadClothes", function(source, args, rawCommand)
     DressDataToPed(PlayerPedId(), PlayerClothes)
-end, false  )
-
+end, false)
 
 RegisterCommand("openClothingMenu", function(source, args, rawCommand)
-OpenMenu(Config.ClothingMenu,false)
+    OpenMenu(Config.ClothingMenu, false)
 end, false)
 
 RegisterCommand("fixskin", function()
-    FixClothes(PlayerPedId())
+    local ped = PlayerPedId()
+    jo.component.refreshPed(ped)
     notify("Oblečení bylo opraveno.")
 end, false)
 
 RegisterCommand("reloadskin", function()
     TriggerServerEvent("aprts_clothing:Server:requestPlayerClothes")
+end, false)
+
+RegisterCommand("states", function()
+    local gender = "male"
+    if not IsPedMale(PlayerPedId()) then
+        gender = "female"
+    end
+
+    local states = WearableStates[gender]["bodies_upper"]
+    print(json.encode(states, {
+        indent = true
+    }))
+    local state = jo.component.getWearableState(PlayerPedId(), "bodies_upper")
+    print("Current state for bodies_upper is:", state)
+end, false)
+
+RegisterCommand("setstate", function(source, args, rawCommand)
+    local ped = PlayerPedId()
+    local gender = "male"
+    if not IsPedMale(PlayerPedId()) then
+        gender = "female"
+    end
+    local category = "bodies_upper"
+    local Stateindex = tonumber(args[1]) or 1
+    local states = WearableStates[gender]["bodies_upper"]
+    print("nastavuji:" .. states[Stateindex])
+    local index = GetComponentIndexByCategory(ped, category)
+    local componentHash, _, wearableState = GetShopItemComponentAtIndex(ped, index, true, Citizen.ResultAsInteger(),
+        Citizen.ResultAsInteger())
+    print('Index:', index, 'Hash:', componentHash, 'wearable state:', wearableState)
+local stateName = jo.component.getWearableStateNameFromHash(wearableState)
+print(stateName)
+    local data = {
+        hash = "CLOTHING_ITEM_F_BODIES_UPPER_004_V_004"
+    }
+    -- jo.component.setWearableState(ped, category, data, states[Stateindex])
+    UpdateShopItemWearableState(ped, componentHash, -1954442920)
+    local wearableState = jo.component.getWearableState(ped, category)
+    print(wearableState)
+
 end, false)

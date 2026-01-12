@@ -12,7 +12,7 @@ local limits = {
 }
 
 -- =========================================================
--- POMOCNÉ FUNKCE (Ceny a Detekce)
+-- POMOCNÉ FUNKCE (Ceny)
 -- =========================================================
 
 -- Získání ceny kategorie z Configu
@@ -44,51 +44,6 @@ local function GetSafeTints(data)
     end
 
     return tonumber(t0) or 0, tonumber(t1) or 0, tonumber(t2) or 0
-end
-
--- Bezpečné porovnání hodnoty (ignoruje rozdíl nil/0 a string/number)
-local function IsValDiff(val1, val2)
-    local v1 = tonumber(val1) or 0
-    local v2 = tonumber(val2) or 0
-    return v1 ~= v2
-end
-
--- Hlavní funkce pro detekci změny v kategorii
-local function HasCategoryChanged(cat)
-    local now = PlayerClothes[cat]
-    local old = ClothesCache[cat]
-
-    -- 1. Kontrola existence (Svlečení / Oblečení)
-    if not now and not old then return false end -- Oba prázdné = beze změny
-    if (now and not old) or (not now and old) then 
-        return true 
-    end
-
-    -- 2. Kontrola skrytí (Toggle)
-    local hiddenNow = now.hidden == true
-    local hiddenOld = old.hidden == true
-    if hiddenNow ~= hiddenOld then return true end
-
-    -- 3. Porovnání hlavních MetaPed tagů
-    if IsValDiff(now.drawable, old.drawable) then return true end
-    if IsValDiff(now.albedo, old.albedo) then return true end
-    if IsValDiff(now.normal, old.normal) then return true end
-    if IsValDiff(now.material, old.material) then return true end
-    if IsValDiff(now.palette, old.palette) then return true end
-
-    -- 4. Porovnání Tintů
-    local nT0, nT1, nT2 = GetSafeTints(now)
-    local oT0, oT1, oT2 = GetSafeTints(old)
-
-    if nT0 ~= oT0 or nT1 ~= oT1 or nT2 ~= oT2 then
-        return true
-    end
-
-    -- 5. Fallback: Porovnání indexu/varianty (pokud se nezměnily hashe, ale ID v menu ano)
-    if IsValDiff(now.index, old.index) then return true end
-    if IsValDiff(now.varID, old.varID) then return true end
-
-    return false
 end
 
 -- =========================================================
@@ -271,34 +226,25 @@ end)
 -- HLAVNÍ CALLBACK PRO NÁKUP / VYTVOŘENÍ ITEMŮ
 RegisterNUICallback("purchaseItems", function(data, cb)
     local outfitName = data.name or "Outfit"
+    -- Získáme seznam kategorií, které JS označil jako "touched" (změněné)
+    local changedCategoriesList = data.changedCategories or {}
+    
     print("--------------------------------------------------")
     print("[DEBUG] Zahajuji nákup: " .. outfitName)
     
-    -- 1. DETEKCE ZMĚN
-    local changedCategories = {}
-    
-    -- Změněné v PlayerClothes
-    for cat, _ in pairs(PlayerClothes) do
-        if HasCategoryChanged(cat) then
-            changedCategories[cat] = true
-        end
-    end
-    -- Změněné v Cache (co jsme sundali)
-    for cat, _ in pairs(ClothesCache) do
-        if HasCategoryChanged(cat) then
-            changedCategories[cat] = true
-        end
-    end
-
-    if table.count(changedCategories) == 0 then
+    if #changedCategoriesList == 0 then
         notify("Nebyla provedena žádná změna.")
+        -- I když není změna, pošleme OK, aby JS mohl případně zavřít okno (pokud to tak chceš),
+        -- ale podle logiky v JS by se tento request ani neměl poslat, pokud je list prázdný.
         cb('ok')
         return
     end
 
-    -- Výpis změn
-    for cat, _ in pairs(changedCategories) do
-        print("[DEBUG] Změna v kategorii: " .. cat)
+    -- Převedeme seznam na mapu pro rychlejší vyhledávání
+    local changedCategories = {}
+    for _, cat in ipairs(changedCategoriesList) do
+        changedCategories[cat] = true
+        print("[DEBUG] Detekována změna (JS): " .. cat)
     end
 
     -- 2. MAPOVÁNÍ DO ITEMŮ
@@ -306,7 +252,7 @@ RegisterNUICallback("purchaseItems", function(data, cb)
     local totalPrice = 0
     local mappedCategories = {} -- Evidence, co už máme zpracované
 
-    -- Projdeme definované itemy v Configu
+    -- Projdeme definované itemy v Configu (např. clothing_hat, clothing_torso...)
     for itemType, mappedCats in pairs(Config.ItemMapping) do
         local itemHasChanges = false
         local itemData = {}
@@ -322,10 +268,14 @@ RegisterNUICallback("purchaseItems", function(data, cb)
             end
             
             -- Ukládáme AKTUÁLNÍ data hráče (pokud věc má na sobě)
+            -- Důležité: Ukládáme VŠECHNY kategorie z mappingu, nejen ty změněné, 
+            -- aby byl item kompletní (např. klobouk + doplňky), pokud to tak má být.
+            -- Ale platíme jen za změnu.
+            
             if PlayerClothes[cat] and not PlayerClothes[cat].hidden then
                 itemData[cat] = PlayerClothes[cat]
                 
-                -- Cenu přičteme, pokud se kategorie změnila (neplatíme za staré věci v novém itemu)
+                -- Cenu přičteme, pouze pokud se kategorie změnila (neplatíme za staré věci v novém itemu)
                 if changedCategories[cat] then
                      itemPrice = itemPrice + GetCategoryPrice(cat)
                 end
@@ -345,7 +295,7 @@ RegisterNUICallback("purchaseItems", function(data, cb)
         end
     end
 
-    -- 3. FALLBACK PRO NEZAŘAZENÉ (ZÁCHRANA)
+    -- 3. FALLBACK PRO NEZAŘAZENÉ (Co není v Config.ItemMapping)
     local leftovers = {}
     local leftoversPrice = 0
     
@@ -371,16 +321,21 @@ RegisterNUICallback("purchaseItems", function(data, cb)
     if table.count(basket) > 0 then
         TriggerServerEvent("aprts_clothing:Server:processPurchase", basket, totalPrice)
         
-        -- Reset Menu a Cache
+        -- Reset Menu a Cache - důležité pro ukončení
         SetNuiFocus(false, false)
         MenuOpen = false
         EndScene()
         CurrentItemContext = nil
         ClothesCache = DeepCopy(PlayerClothes) -- Potvrdíme změny jako nové default
     else
-        notify("Košík je prázdný (asi jsi věci jen sundal).")
+        notify("Košík je prázdný (věci byly sundány nebo nejsou v mappingu).")
+        -- I v tomto případě zavřeme menu, pokud uživatel klikl na koupit
+        SetNuiFocus(false, false)
+        MenuOpen = false
+        EndScene()
     end
 
+    -- Pošleme callback zpět do JS, aby věděl, že má skrýt UI
     cb('ok')
 end)
 

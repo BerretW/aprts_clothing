@@ -9,6 +9,7 @@ description 'aprts_clothing refactored'
 games {"rdr3"}
 
 shared_scripts {
+        '@jo_libs/init.lua',
     '@ox_lib/init.lua',
     'config.lua',
     'data/*.lua' -- Načte všechny soubory ve složce data
@@ -39,4 +40,7 @@ files {
     'nui/script.js',
     'nui/fonts/*.ttf',
     'nui/img/*.png'
+}
+jo_libs {
+  'component',
 }
