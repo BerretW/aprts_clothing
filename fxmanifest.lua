@@ -19,6 +19,7 @@ client_scripts {
     'client/utils.lua',    -- Pomocné funkce první
     'client/camera.lua',   -- Kamera
     'client/clothing.lua', -- Logika oblečení
+    'client/overlay.lua',
     'client/menu.lua',     -- Logika menu
     'client/main.lua',     -- Hlavní smyčky a init
     'client/nui.lua',      -- NUI callbacky
@@ -43,4 +44,5 @@ files {
 }
 jo_libs {
   'component',
+  'pedTexture',
 }

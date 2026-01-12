@@ -26,6 +26,53 @@ function UpdateShopItemWearableState(comp, wearable)
     Citizen.InvokeNative(0x66B957AAC2EAAEAB, PlayerPedId(), comp, wearable, 0, 1, 1)
 end
 
+
+function ToggleItemClothes(data, outfitName)
+    local ped = PlayerPedId()
+    local isWearingAll = true
+
+    -- 1. KROK: Zjistíme, zda má hráč oblečené vše, co je v itemu
+    for category, itemData in pairs(data) do
+        local current = PlayerClothes[category]
+
+        -- Pokud hráč nemá na sobě v této kategorii nic, nebo má něco jiného (jiné ID drawable nebo jinou texturu albedo)
+        if not current or current.drawable ~= itemData.drawable or current.albedo ~= itemData.albedo then
+            isWearingAll = false
+            break
+        end
+    end
+
+    -- 2. KROK: Rozhodnutí (Sundat nebo Nasadit)
+    if isWearingAll then
+        -- A) Hráč to má na sobě -> SUNDAT (Undress)
+        for category, _ in pairs(data) do
+            -- Funkce RemoveTagFromMetaPed (již existuje v tvém scriptu) 
+            -- odstraní vizuální tag a smaže záznam z PlayerClothes
+            RemoveTagFromMetaPed(category, ped)
+        end
+        
+        notify("Oblečení svléknuto: " .. (outfitName or "Item"))
+    else
+        -- B) Hráč to nemá (nebo má jen část) -> NASADIT (Dress)
+        DressDataToPed(ped, data)
+        
+        -- Důležité: Musíme ručně aktualizovat cache PlayerClothes pro všechny nové položky,
+        -- protože DressDataToPed to v některých verzích nedělá pro všechna data.
+        for category, itemData in pairs(data) do
+            PlayerClothes[category] = itemData
+        end
+        
+        notify("Oblečení nasazeno: " .. (outfitName or "Item"))
+    end
+
+    -- 3. KROK: Aktualizace postavy a uložení
+    UpdatePedVariation(ped)
+    
+    -- Uložíme aktuální stav na server, aby to zůstalo i po relogu
+    TriggerServerEvent("aprts_clothing:Server:saveClothes", PlayerClothes)
+end
+
+
 -- Hlavní funkce pro nastavení MetaPed tagů (Drawable, Albedo, Normal, Material, Palette, Tints)
 function UpdateCustomClothes(playerPed, drawable, albedo, normal, material, palette, tint0, tint1, tint2)
     while not NativeHasPedComponentLoaded(playerPed) do

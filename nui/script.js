@@ -2,36 +2,44 @@ const { createApp, ref, reactive, computed, onMounted } = Vue;
 
 createApp({
     setup() {
+        // --- STAV A VIDITELNOST ---
         const isVisible = ref(false);
-        const isCreatorMode = ref(false);
+        const isCreatorMode = ref(false); // Pokud true, zobrazí se "Uložit postavu" místo "Koupit"
         const gender = ref('male');
 
-        // --- NOVÉ: Řízení viditelnosti panelů ---
+        // Viditelnost jednotlivých panelů
         const showBodyPanel = ref(true);
         const showClothingPanel = ref(true);
-        // ----------------------------------------
+        const showOverlayPanel = ref(false); // Defaultně vypnuto
 
-        // Data menu
-        const menuData = ref([]);
-        const currentCategory = ref(null);
+        // --- DATA ---
+        const menuData = ref([]);      // Kategorie oblečení
+        const bodyStates = reactive({}); // Data pro tělo
+        const overlayMenuData = ref([]); // Data pro overlaye
 
-        // Sledování změn (Dirty Flags)
+        // Sledování změn (pro nákupní košík)
         const touchedCategories = reactive(new Set());
 
-        // Data pro tělo (levý panel)
-        const bodyStates = reactive({});
-
-        // Data pro vybranou kategorii (pravý panel)
+        // --- VÝBĚR A EDITACE (Oblečení) ---
+        const currentCategory = ref(null);
         const currentItems = ref([]);
         const currentItemIndex = ref(-1);
         const currentVarID = ref(1);
         const selectedPalette = ref(1);
         const tints = reactive([0, 0, 0]);
-
-        // Input pro název itemu/outfitu
         const newOutfitName = ref("");
 
-        // Palety (konstanty)
+        // --- VÝBĚR A EDITACE (Overlay) ---
+        const currentOverlayCat = ref(null);
+        const currentOverlayState = reactive({
+            index: 0, // 0 = Žádné/Vypnuto (odpovídá indexu v poli items)
+            palette: 'metaped_tint_makeup',
+            tint0: 255,
+            tint1: 0,
+            tint2: 0
+        });
+
+        // --- KONSTANTY ---
         const palettes = [
             "metaped_tint_generic_clean", "metaped_tint_hair",
             "metaped_tint_horse_leather", "metaped_tint_animal",
@@ -39,10 +47,13 @@ createApp({
             "metaped_tint_combined_leather"
         ];
 
-        // Kamera state
+        // --- KAMERA ---
         const mouseState = reactive({ isLeftDown: false, isRightDown: false, lastX: 0, lastY: 0 });
 
-        // COMPUTED
+
+        // ==========================================================================
+        // COMPUTED PROPERTIES
+        // ==========================================================================
         const maxItems = computed(() => {
             return currentItems.value.length > 0 ? currentItems.value.length - 1 : 0;
         });
@@ -50,7 +61,6 @@ createApp({
         const maxVariants = computed(() => {
             if (currentItemIndex.value === -1 || !currentItems.value[currentItemIndex.value]) return 1;
             const item = currentItems.value[currentItemIndex.value];
-
             if (item.drawable) {
                 if (Array.isArray(item.variants)) return item.variants.length;
                 if (typeof item.variants === 'object') return Object.keys(item.variants).length;
@@ -70,7 +80,9 @@ createApp({
             return currentCategory.value;
         });
 
-        // --- HTTP HELPER ---
+        // ==========================================================================
+        // HTTP HELPER & UTILS
+        // ==========================================================================
         const postData = async (endpoint, data) => {
             try {
                 const response = await fetch(`https://${GetParentResourceName()}/${endpoint}`, {
@@ -85,9 +97,7 @@ createApp({
         };
 
         const markAsChanged = (cat) => {
-            if (cat) {
-                touchedCategories.add(cat);
-            }
+            if (cat) touchedCategories.add(cat);
         };
 
         const formatBodyLabel = (cat) => {
@@ -99,21 +109,11 @@ createApp({
             return pal.replace('metaped_tint_', '').replace(/_/g, ' ');
         };
 
-        // === LOGIKA NÁKUPU ===
-        const purchaseItems = async () => {
-            const changedList = Array.from(touchedCategories);
-            const response = await postData('purchaseItems', {
-                name: newOutfitName.value.trim() !== "" ? newOutfitName.value : "Oblečení",
-                changedCategories: changedList
-            });
 
-            if (response === 'ok') {
-                closeMenu();
-            }
-        };
-
-        // === BODY LOGIC ===
-const initBodyMenu = (categories) => {
+        // ==========================================================================
+        // LOGIKA TĚLA (BODY PANEL)
+        // ==========================================================================
+        const initBodyMenu = (categories) => {
             categories.forEach(async (cat) => {
                 const data = await postData('getCatData', { gender: gender.value, category: cat });
                 if (data) {
@@ -121,46 +121,25 @@ const initBodyMenu = (categories) => {
                     let currentIdx = (data.currentIndex !== undefined && data.currentIndex !== -1) ? data.currentIndex : 1;
                     currentIdx = currentIdx - 1;
                     if (currentIdx < 0) currentIdx = 0;
-                    
+
                     bodyStates[cat] = {
                         items: items,
-                        index: currentIdx, 
+                        index: currentIdx,
                         max: items.length,
-                        
-                        // NOVÉ: States
-                        states: data.states || [], // Seznam názvů stavů
+                        // States (vyhrnuté rukávy atd.)
+                        states: data.states || [],
                         stateIndex: data.currentState || 0
                     };
                 }
             });
         };
 
-         const changeBodyState = (cat, dir) => {
-            const state = bodyStates[cat];
-            if (!state || !state.states || state.states.length === 0) return;
-
-            let newIndex = state.stateIndex + dir;
-            if (newIndex < 0) newIndex = state.states.length - 1;
-            if (newIndex >= state.states.length) newIndex = 0;
-
-            state.stateIndex = newIndex;
-            
-            // Odeslat na server
-            postData('updateWearableState', { 
-                category: cat, 
-                stateIndex: state.stateIndex 
-            });
-        };
-
-
         const changeBodyItem = (cat, dir) => {
             const state = bodyStates[cat];
             if (!state) return;
-
             let newIndex = state.index + dir;
             if (newIndex < 0) newIndex = state.max - 1;
             if (newIndex >= state.max) newIndex = 0;
-
             state.index = newIndex;
             updateBodyItem(cat);
         };
@@ -171,22 +150,34 @@ const initBodyMenu = (categories) => {
             postData('applyItem', { category: cat, index: state.index + 1, varID: 1 });
         };
 
+        const changeBodyState = (cat, dir) => {
+            const state = bodyStates[cat];
+            if (!state || !state.states || state.states.length === 0) return;
+
+            let newIndex = state.stateIndex + dir;
+            if (newIndex < 0) newIndex = state.states.length - 1;
+            if (newIndex >= state.states.length) newIndex = 0;
+
+            state.stateIndex = newIndex;
+            postData('updateWearableState', { category: cat, stateIndex: state.stateIndex });
+        };
+
         const saveBodyChanges = async () => {
-            // 1. Počkáme, až Lua zpracuje uložení
             const response = await postData('saveClothes', {
                 saveType: 'character',
                 CreatorMode: isCreatorMode.value,
                 saved: true
             });
-
-            // 2. Pokud vše proběhlo v pořádku, skryjeme menu
             if (response === 'ok') {
-                isVisible.value = false;   // Skryje HTML
-                touchedCategories.clear(); // Vyčistí seznam změn
+                isVisible.value = false;
+                touchedCategories.clear();
             }
         };
 
-        // === CLOTHING LOGIC ===
+
+        // ==========================================================================
+        // LOGIKA OBLEČENÍ (CLOTHING PANEL)
+        // ==========================================================================
         const selectCategory = async (catId) => {
             currentCategory.value = catId;
             tints[0] = 0; tints[1] = 0; tints[2] = 0;
@@ -210,7 +201,6 @@ const initBodyMenu = (categories) => {
                 }
 
                 if (data.savedPalette) selectedPalette.value = data.savedPalette;
-
                 if (data.savedTints && Array.isArray(data.savedTints)) {
                     tints[0] = data.savedTints[0];
                     tints[1] = data.savedTints[1];
@@ -221,7 +211,6 @@ const initBodyMenu = (categories) => {
 
         const changeItem = (dir) => {
             if (currentItems.value.length === 0) return;
-
             let newIndex = currentItemIndex.value + dir;
             if (newIndex < -1) newIndex = currentItems.value.length - 1;
             else if (newIndex >= currentItems.value.length) newIndex = -1;
@@ -233,7 +222,6 @@ const initBodyMenu = (categories) => {
 
         const onItemChange = (userAction = true) => {
             if (userAction) markAsChanged(currentCategory.value);
-
             if (currentItemIndex.value === -1) {
                 postData('removeItem', { category: currentCategory.value });
             } else {
@@ -283,6 +271,128 @@ const initBodyMenu = (categories) => {
             onItemChange(false);
         };
 
+        const purchaseItems = async () => {
+            const changedList = Array.from(touchedCategories);
+            const response = await postData('purchaseItems', {
+                name: newOutfitName.value.trim() !== "" ? newOutfitName.value : "Oblečení",
+                changedCategories: changedList
+            });
+            if (response === 'ok') {
+                closeMenu();
+            }
+        };
+
+
+        // ==========================================================================
+        // LOGIKA OVERLAY (MAKE-UP / VZHLED)
+        // ==========================================================================
+        const toggleOverlayMode = async () => {
+            showOverlayPanel.value = !showOverlayPanel.value;
+            
+            if (showOverlayPanel.value) {
+                // Zapínáme Overlay mód -> skryjeme ostatní
+                showBodyPanel.value = false;
+                showClothingPanel.value = false;
+                
+                // Načteme data
+                const data = await postData('getOverlayMenu', {});
+                if (data) {
+                    overlayMenuData.value = data;
+                    // Automaticky vybrat první kategorii
+                    if (data.length > 0) selectOverlayCat(data[0].id);
+                }
+            } else {
+                // Vypínáme Overlay mód -> zobrazíme oblečení
+                showBodyPanel.value = true;
+                showClothingPanel.value = true;
+            }
+        };
+
+        const selectOverlayCat = (catId) => {
+            currentOverlayCat.value = catId;
+            const catData = overlayMenuData.value.find(c => c.id === catId);
+            
+            if (catData && catData.current) {
+                // Lua vrací items pole, kde index 1 je položka 1. 
+                // Ale my tam přidali {label: "Žádné", index: -1} jako první v poli items (index 0 v JS poli).
+                // Logika v Lua: Items = { {label="Žádné", index=-1}, {label="Styl 1", index=1} ... }
+                
+                // Náš slider pojede od 0 do items.length-1.
+                // Musíme najít správnou pozici slideru podle uloženého indexu (catData.current.index).
+                
+                let sliderIndex = 0; // Default (Žádné)
+                
+                if (catData.current.index > 0) {
+                    // Najdeme item v poli items, který má tento index
+                    const foundIdx = catData.items.findIndex(i => i.index === catData.current.index);
+                    if (foundIdx !== -1) sliderIndex = foundIdx;
+                }
+
+                currentOverlayState.index = sliderIndex;
+                currentOverlayState.palette = catData.current.palette || 'metaped_tint_makeup';
+                currentOverlayState.tint0 = (catData.current.tint0 !== undefined) ? catData.current.tint0 : 255;
+                currentOverlayState.tint1 = (catData.current.tint1 !== undefined) ? catData.current.tint1 : 0;
+                currentOverlayState.tint2 = (catData.current.tint2 !== undefined) ? catData.current.tint2 : 0;
+            }
+        };
+
+        const updateOverlay = () => {
+            // Získáme reálný Lua index z vybraného itemu v poli
+            const catData = overlayMenuData.value.find(c => c.id === currentOverlayCat.value);
+            if (!catData) return;
+            
+            const selectedItem = catData.items[currentOverlayState.index];
+            const realLuaIndex = selectedItem ? selectedItem.index : -1;
+
+            postData('applyOverlayChange', {
+                layer: currentOverlayCat.value,
+                index: realLuaIndex, // -1 pro odstranění, >0 pro aplikaci
+                palette: currentOverlayState.palette,
+                tint0: currentOverlayState.tint0,
+                tint1: currentOverlayState.tint1,
+                tint2: currentOverlayState.tint2
+            });
+        };
+
+        const changeOverlayItem = (dir) => {
+            const catData = overlayMenuData.value.find(c => c.id === currentOverlayCat.value);
+            if (!catData) return;
+            
+            const max = catData.items.length - 1;
+            let newVal = currentOverlayState.index + dir;
+            
+            if (newVal < 0) newVal = max;
+            if (newVal > max) newVal = 0;
+            
+            currentOverlayState.index = newVal;
+            updateOverlay();
+        };
+
+        const getCurrentOverlayMax = () => {
+            const catData = overlayMenuData.value.find(c => c.id === currentOverlayCat.value);
+            return catData ? catData.items.length - 1 : 0;
+        };
+
+        const getCurrentOverlayName = () => {
+            const catData = overlayMenuData.value.find(c => c.id === currentOverlayCat.value);
+            if (!catData) return "";
+            const item = catData.items[currentOverlayState.index];
+            return item ? item.label : "";
+        };
+
+        const getCurrentOverlayIndexDisplay = () => {
+             return `${currentOverlayState.index} / ${getCurrentOverlayMax()}`;
+        };
+
+        const getOverlayLabel = (id) => {
+            const found = overlayMenuData.value.find(c => c.id === id);
+            return found ? found.label : id;
+        };
+
+
+        // ==========================================================================
+        // GLOBAL MENU LOGIC
+        // ==========================================================================
         const resetToNaked = () => {
             postData('resetToNaked', {}).then(() => {
                 initBodyMenu(Object.keys(bodyStates));
@@ -308,7 +418,10 @@ const initBodyMenu = (categories) => {
             postData('closeClothingMenu', { saved: false });
         };
 
-        // === CAMERA LOGIC ===
+
+        // ==========================================================================
+        // CAMERA LOGIC
+        // ==========================================================================
         const handleMouseDown = (e) => {
             if (e.button === 0) { mouseState.isLeftDown = true; mouseState.lastX = e.clientX; }
             else if (e.button === 2) { mouseState.isRightDown = true; mouseState.lastY = e.clientY; }
@@ -321,7 +434,6 @@ const initBodyMenu = (categories) => {
 
         const handleMouseMove = (e) => {
             if (!isVisible.value) return;
-
             if (mouseState.isLeftDown) {
                 let deltaX = e.clientX - mouseState.lastX;
                 mouseState.lastX = e.clientX;
@@ -340,7 +452,10 @@ const initBodyMenu = (categories) => {
             postData('zoomCamera', { dir: dir });
         };
 
+
+        // ==========================================================================
         // LIFECYCLE
+        // ==========================================================================
         onMounted(() => {
             window.addEventListener('message', (event) => {
                 const data = event.data;
@@ -350,18 +465,15 @@ const initBodyMenu = (categories) => {
                     isCreatorMode.value = data.creatorMode;
                     menuData.value = data.menuData;
 
-                    // --- NOVÉ: Nastavení viditelnosti podle Lua ---
-                    // Defaultně true, pokud Lua nepošle nic (zpětná kompatibilita)
+                    // Ovládání viditelnosti z Lua (volitelné)
                     showBodyPanel.value = (data.showBody !== undefined) ? data.showBody : true;
                     showClothingPanel.value = (data.showClothes !== undefined) ? data.showClothes : true;
-                    // ----------------------------------------------
+                    showOverlayPanel.value = false; // Vždy začínáme bez overlay panelu
 
-                    // Reset inputu
                     newOutfitName.value = "";
                     touchedCategories.clear();
-
-                    // Default selection
                     currentCategory.value = null;
+                    currentOverlayCat.value = null;
 
                     if (data.bodyCategories) {
                         initBodyMenu(data.bodyCategories);
@@ -370,7 +482,6 @@ const initBodyMenu = (categories) => {
             });
 
             document.addEventListener('keyup', (e) => {
-                // Povolíme zavření ESCapem pokud nejsme v Creator módu
                 if (e.which === 27 && !isCreatorMode.value && isVisible.value) closeMenu();
             });
 
@@ -383,21 +494,31 @@ const initBodyMenu = (categories) => {
 
         return {
             isVisible, isCreatorMode,
-            showBodyPanel, showClothingPanel, // <-- EXPORTOVÁNO PRO HTML
-            menuData, bodyStates,
+            showBodyPanel, showClothingPanel, showOverlayPanel,
+            menuData, bodyStates, overlayMenuData,
+            
+            // Oblečení
             currentCategory, currentCategoryLabel,
             currentItems, currentItemIndex, currentVarID,
             maxItems, maxVariants,
-            palettes, selectedPalette, tints,
-
             newOutfitName, purchaseItems,
 
-            closeMenu, selectCategory, formatBodyLabel, formatPaletteName,
-            changeBodyItem, updateBodyItem,
+            // Overlay
+            currentOverlayCat, currentOverlayState,
+            toggleOverlayMode, selectOverlayCat, updateOverlay, 
+            changeOverlayItem, getCurrentOverlayMax, getCurrentOverlayName,
+            getOverlayLabel, getCurrentOverlayIndexDisplay,
+
+            // Palety & Utils
+            palettes, selectedPalette, tints,
+            formatBodyLabel, formatPaletteName,
+            
+            // Akce
+            selectCategory, changeBodyItem, updateBodyItem, changeBodyState,
             changeItem, onItemChange, changeVariant, onVariantChange,
             applyPalette, applyTint, removeItem,
-            resetToNaked, refreshPed, saveClothes,
-            saveBodyChanges, changeBodyState
+            resetToNaked, refreshPed, saveClothes, saveBodyChanges,
+            closeMenu
         };
     }
 }).mount('#app');

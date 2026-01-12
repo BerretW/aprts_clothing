@@ -27,59 +27,37 @@ AddEventHandler("onClientResourceStart", function(resourceName)
     TriggerServerEvent("aprts_clothing:Server:requestPlayerClothes")
 end)
 
-RegisterNetEvent('aprts_clothing:Client:receivePlayerClothes')
-AddEventHandler('aprts_clothing:Client:receivePlayerClothes', function(clothes)
-    print("Oblečení načteno ze serveru.")
-    PlayerClothes = clothes or {}
-    ClothesCache = clothes or {}
+RegisterNetEvent("aprts_clothing:Client:receivePlayerClothes")
+AddEventHandler("aprts_clothing:Client:receivePlayerClothes", function(clothesData, makeupData)
+    local ped = PlayerPedId()
     
-    -- Tady použijeme novou funkci, která řadí kategorie
-    DressDataToPed(PlayerPedId(), PlayerClothes)
+    -- 1. Načtení oblečení
+    PlayerClothes = clothesData or {}
+    ClothesCache = DeepCopy(PlayerClothes) -- Cache pro revert
+    DressDataToPed(ped, PlayerClothes)
+
+    -- 2. Načtení Make-upu (NOVÉ)
+    if makeupData then
+        LoadPlayerOverlays(makeupData) -- Funkce z client/overlay.lua
+    end
     
-    -- Pro jistotu po krátké prodlevě (fixuje načítání textur při loginu)
-    Citizen.SetTimeout(1000, function()
-        FixClothes(PlayerPedId())
-    end)
+    -- Final refresh
+    UpdatePedVariation(ped)
 end)
 
 -- Item Eventy
 RegisterNetEvent("aprts_clothing:Client:ApplyItemClothes")
-AddEventHandler("aprts_clothing:Client:ApplyItemClothes", function(data, itemName, itemId)
+AddEventHandler("aprts_clothing:Client:ApplyItemClothes", function(clothingData, itemName, itemId)
     local ped = PlayerPedId()
 
-    if not data then return end
+    -- Pokud data neexistují, konec
+    if not clothingData then return end
 
-    -- 1. SLOUČENÍ DAT (MERGE)
-    -- Projdeme data z itemu a přepíšeme jimi aktuální PlayerClothes
-    for category, clothesData in pairs(data) do
-        PlayerClothes[category] = clothesData
-        -- Ujistíme se, že kategorie není skrytá
-        if PlayerClothes[category].hidden then
-            PlayerClothes[category].hidden = false
-        end
-    end
-
-    -- 2. APLIKACE NA PEDA
-    -- Přeoblečeme peda podle aktualizované tabulky PlayerClothes
-    DressDataToPed(ped, PlayerClothes)
+    -- Voláme naši novou Toggle funkci
+    ToggleItemClothes(clothingData, itemName)
     
-    -- Fix pro případné vizuální glitche
-    UpdatePedVariation(ped)
-
-    -- 3. NASTAVENÍ KONTEXTU
-    -- Uložíme si info o itemu. Pokud hráč nyní otevře /openClothingMenu, 
-    -- script bude vědět, že edituje tento konkrétní item, a ne svou postavu.
-    CurrentItemContext = {
-        itemId = itemId,
-        itemName = itemName
-    }
-
-    -- 4. ULOŽENÍ STAVU DO DB (Volitelné, ale doporučené)
-    -- Pokud chceš, aby hráč měl toto oblečení i po relogu (bez nutnosti znovu klikat na item),
-    -- odkomentuj následující řádek:
-    -- TriggerServerEvent("aprts_clothing:Server:saveClothes", PlayerClothes)
-
-    print("Item aplikován a PlayerClothes aktualizováno.")
+    -- Volitelné: Přehrání animace oblékání
+    playAnim(ped, "mech_inventory@clothing@mask", "cor_mask_put_on_r_hand", 0, 2000)
 end)
 
 RegisterNetEvent("aprts_clothing:Client:OpenItemCreator")

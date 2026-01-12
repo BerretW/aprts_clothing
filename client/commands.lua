@@ -61,7 +61,7 @@ RegisterCommand("undress", function(source, args, rawCommand)
     -- 2. Získáme seznam VŠECH možných kategorií
     -- Kombinujeme kategorie z Ceníku (obsahuje většinu) a aktuálního PlayerClothes
     local allCategories = {}
-    
+
     -- A) Přidáme vše z Config.CategoryPrices (pokrývá drtivou většinu oblečení)
     if Config.CategoryPrices then
         for cat, _ in pairs(Config.CategoryPrices) do
@@ -82,7 +82,7 @@ RegisterCommand("undress", function(source, args, rawCommand)
         if not keepCategories[cat] then
             -- Funkce z client/clothing.lua - odstraní Native Tag a vymaže z PlayerClothes
             RemoveTagFromMetaPed(cat, ped)
-            
+
             -- Pojistka: Pokud funkce výše nesmazala záznam z PlayerClothes (např. nebyl nasazen), smažeme ho ručně
             if PlayerClothes[cat] then
                 PlayerClothes[cat] = nil
@@ -93,13 +93,12 @@ RegisterCommand("undress", function(source, args, rawCommand)
 
     -- 4. Finální refresh postavy
     UpdatePedVariation(ped)
-    
+
     -- 5. Uložení "nahého" stavu na server
     TriggerServerEvent("aprts_clothing:Server:saveClothes", PlayerClothes)
 
     notify("Postava byla kompletně svlečena.")
 end, false)
-
 
 RegisterCommand("printClothes", function(source, args, rawCommand)
     print(json.encode(PlayerClothes, {
@@ -321,4 +320,19 @@ RegisterCommand("pants", function()
 end, false)
 RegisterCommand("suspenders", function()
     ToggleClothingGroup("suspenders")
+end, false)
+
+RegisterCommand("overlay", function(source, args, rawCommand)
+    local ped = PlayerPedId()
+    local layername = "eyeshadow"
+    local variations = jo.pedTexture.variations[layername]
+    for _, variation in pairs(variations) do
+        print(variation.label)
+    end
+    local data = jo.pedTexture.variations.eyeshadow[3].value
+    data.palette = "metaped_tint_makeup"
+    data.tint0 = 5
+    data.tint1 = 10
+    data.tint2 = 40
+    jo.pedTexture.apply(ped, layername, data)
 end, false)

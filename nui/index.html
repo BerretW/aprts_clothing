@@ -4,13 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RDR2 Clothing Menu</title>
+    <title>RDR2 Clothing & Overlay Menu</title>
     <link rel="stylesheet" href="style.css">
     <!-- Vue 3 CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <!-- Fonty -->
-    <link href="https://fonts.googleapis.com/css2?family=Rye&family=Roboto:wght@400;500;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rye&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -19,8 +18,9 @@
         <!-- Zobrazíme jen pokud je menu aktivní -->
         <div v-if="isVisible" class="ui-wrapper">
 
-            <!-- LEVÉ MENU: TĚLO -->
-            <!-- Zobrazí se pouze, pokud je showBodyPanel = true -->
+            <!-- ================================================================= -->
+            <!-- LEVÉ MENU: TĚLO & OVLÁDÁNÍ -->
+            <!-- ================================================================= -->
             <div v-if="isVisible && showBodyPanel" class="panel body-panel" @mousedown.stop @wheel.stop>
                 <div class="panel-header">
                     <h2>TĚLO & TVARY</h2>
@@ -35,30 +35,22 @@
                         </div>
                         <div class="slider-row">
                             <button class="nav-arrow" @click="changeBodyItem(cat, -1)">❮</button>
-                            <input type="range" v-model.number="state.index" :max="state.max - 1" min="0"
-                                @input="updateBodyItem(cat)">
+                            <input type="range" v-model.number="state.index" :max="state.max - 1" min="0" @input="updateBodyItem(cat)">
                             <button class="nav-arrow" @click="changeBodyItem(cat, 1)">❯</button>
                         </div>
 
-                        <!-- NOVÉ: Slider pro STAV (Wearable State) -->
-                        <!-- Zobrazí se jen, pokud existují stavy -->
-                        <div v-if="state.states && state.states.length > 0"
-                            style="margin-top: 10px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 4px;">
+                        <!-- Slider pro STAV (Wearable State) - Otevřený límec atd. -->
+                        <div v-if="state.states && state.states.length > 0" style="margin-top: 10px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 4px;">
                             <div class="label-row">
                                 <label style="font-size: 10px; color: #d4af37;">STAV / ÚPRAVA</label>
-                                <!-- Zobrazíme název stavu (např. BASE, CORSET...) -->
-                                <span class="value-display" style="font-size: 10px;">{{ state.states[state.stateIndex]
-                                    }}</span>
+                                <span class="value-display" style="font-size: 10px;">{{ state.states[state.stateIndex] }}</span>
                             </div>
                             <div class="slider-row">
-                                <button class="nav-arrow" style="width: 25px; height: 25px;"
-                                    @click="changeBodyState(cat, -1)">❮</button>
-                                <!-- Tady stačí jen text uprostřed, range slider není nutný pro stavy -->
+                                <button class="nav-arrow" style="width: 25px; height: 25px;" @click="changeBodyState(cat, -1)">❮</button>
                                 <div style="flex:1; text-align:center; font-size: 11px; color:#aaa;">
                                     {{ state.stateIndex + 1 }} / {{ state.states.length }}
                                 </div>
-                                <button class="nav-arrow" style="width: 25px; height: 25px;"
-                                    @click="changeBodyState(cat, 1)">❯</button>
+                                <button class="nav-arrow" style="width: 25px; height: 25px;" @click="changeBodyState(cat, 1)">❯</button>
                             </div>
                         </div>
 
@@ -68,18 +60,22 @@
                 <div class="panel-footer">
                     <button class="btn btn-secondary" @click="resetToNaked">SVLÉKNOUT</button>
                     <button class="btn btn-primary" @click="refreshPed">OBNOVIT</button>
+                    
+                    <!-- PŘEPÍNAČ MEZI OBLEČENÍM A OVERLAYEM -->
+                    <button class="btn btn-secondary" style="border: 1px solid #d4af37; color: #d4af37;" @click="toggleOverlayMode">
+                        {{ showOverlayPanel ? 'ZPĚT K OBLEČENÍ' : 'MAKE-UP / VZHLED' }}
+                    </button>
 
-                    <!-- ZMĚNA ZDE: -->
-                    <!-- Pokud je zobrazeno pouze menu těla (/skin), ukážeme Uložit a Zrušit -->
-                    <template v-if="!showClothingPanel && !isCreatorMode">
+                    <template v-if="!showClothingPanel && !showOverlayPanel && !isCreatorMode">
                         <button class="btn btn-confirm" @click="saveBodyChanges">ULOŽIT</button>
                         <button class="btn btn-danger" @click="closeMenu">ZRUŠIT</button>
                     </template>
                 </div>
             </div>
 
-            <!-- PRAVÉ MENU: OBLEČENÍ -->
-            <!-- Zobrazí se pouze, pokud je showClothingPanel = true -->
+            <!-- ================================================================= -->
+            <!-- PRAVÉ MENU: OBLEČENÍ (Klasický šatník) -->
+            <!-- ================================================================= -->
             <div v-if="isVisible && showClothingPanel" class="panel clothing-panel" @mousedown.stop @wheel.stop>
                 <div class="panel-header">
                     <h1>ŠATNÍK</h1>
@@ -97,7 +93,7 @@
                     </div>
                 </div>
 
-                <!-- Editor Panel (Zobrazí se po výběru kategorie) -->
+                <!-- Editor Panel -->
                 <div v-if="currentCategory" class="editor-section">
                     <div class="editor-header">
                         <h3>{{ currentCategoryLabel }}</h3>
@@ -108,8 +104,7 @@
                         <div class="control-group">
                             <div class="label-row">
                                 <label>Model</label>
-                                <span class="value-display">{{ currentItemIndex + 1 }} / {{ currentItems.length
-                                    }}</span>
+                                <span class="value-display">{{ currentItemIndex + 1 }} / {{ currentItems.length }}</span>
                             </div>
                             <div class="slider-row">
                                 <button class="nav-arrow" @click="changeItem(-1)">❮</button>
@@ -126,22 +121,18 @@
                                 <span class="value-display">{{ currentVarID }} / {{ maxVariants }}</span>
                             </div>
                             <div class="slider-row">
-                                <button class="nav-arrow" @click="changeVariant(-1)"
-                                    :disabled="currentItemIndex === -1">❮</button>
+                                <button class="nav-arrow" @click="changeVariant(-1)" :disabled="currentItemIndex === -1">❮</button>
                                 <input type="range" v-model.number="currentVarID" :max="maxVariants" min="1"
                                     :disabled="currentItemIndex === -1" @change="onVariantChange">
-                                <button class="nav-arrow" @click="changeVariant(1)"
-                                    :disabled="currentItemIndex === -1">❯</button>
+                                <button class="nav-arrow" @click="changeVariant(1)" :disabled="currentItemIndex === -1">❯</button>
                             </div>
                         </div>
 
                         <!-- PALETA -->
                         <div class="control-group">
                             <label>Paleta Materiálu</label>
-                            <select v-model="selectedPalette" @change="applyPalette" class="rdr-select"
-                                :disabled="currentItemIndex === -1">
-                                <option v-for="(pal, index) in palettes" :value="index + 1">{{ formatPaletteName(pal) }}
-                                </option>
+                            <select v-model="selectedPalette" @change="applyPalette" class="rdr-select" :disabled="currentItemIndex === -1">
+                                <option v-for="(pal, index) in palettes" :value="index + 1">{{ formatPaletteName(pal) }}</option>
                             </select>
                         </div>
 
@@ -149,41 +140,103 @@
                         <div class="tints-group">
                             <label>Jemné Tónování</label>
                             <div class="tint-sliders">
-                                <input type="range" class="tint-range" v-model.number="tints[0]" max="254"
-                                    @input="applyTint" :disabled="currentItemIndex === -1">
-                                <input type="range" class="tint-range" v-model.number="tints[1]" max="254"
-                                    @input="applyTint" :disabled="currentItemIndex === -1">
-                                <input type="range" class="tint-range" v-model.number="tints[2]" max="254"
-                                    @input="applyTint" :disabled="currentItemIndex === -1">
+                                <input type="range" class="tint-range" v-model.number="tints[0]" max="254" @input="applyTint" :disabled="currentItemIndex === -1">
+                                <input type="range" class="tint-range" v-model.number="tints[1]" max="254" @input="applyTint" :disabled="currentItemIndex === -1">
+                                <input type="range" class="tint-range" v-model.number="tints[2]" max="254" @input="applyTint" :disabled="currentItemIndex === -1">
                             </div>
                         </div>
 
-                        <!-- AKCE TLAČÍTKA -->
+                        <!-- AKCE -->
                         <div class="action-buttons">
-                            <!-- Odložit aktuálně vybranou věc -->
                             <button class="btn btn-danger" @click="removeItem">Odložit / Sundat</button>
 
-                            <!-- Sekce pro Creator Mode (První tvorba postavy) -->
                             <div v-if="isCreatorMode" style="width: 100%; margin-top: 10px;">
                                 <button class="btn btn-confirm" @click="saveClothes('character')">
                                     DOKONČIT A ULOŽIT POSTAVU
                                 </button>
                             </div>
 
-                            <!-- Sekce pro běžný Gameplay (Nákup oblečení) -->
-                            <div v-else class="new-item-group"
-                                style="width: 100%; margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                            <div v-else class="new-item-group" style="width: 100%; margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                                <input type="text" v-model="newOutfitName" placeholder="Pojmenuj svůj nákup..." class="outfit-name-input" style="width: 100%;">
+                                <button class="btn btn-item-save" @click="purchaseItems">KOUPIT VYBRANÉ</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                                <input type="text" v-model="newOutfitName" placeholder="Pojmenuj svůj nákup..."
-                                    class="outfit-name-input" style="width: 100%;">
+            <!-- ================================================================= -->
+            <!-- NOVÉ MENU: OVERLAY (Make-up, Jizvy, Detaily) -->
+            <!-- ================================================================= -->
+            <div v-if="isVisible && showOverlayPanel" class="panel clothing-panel" @mousedown.stop @wheel.stop>
+                <div class="panel-header">
+                    <h1>MAKE-UP & VZHLED</h1>
+                    <button class="close-btn" v-if="!isCreatorMode" @click="closeMenu">✕</button>
+                </div>
 
-                                <!-- Tlačítko nyní spouští logiku automatického roztřídění a nákupu -->
-                                <button class="btn btn-item-save" @click="purchaseItems">
-                                    KOUPIT VYBRANÉ
-                                </button>
+                <div class="scroll-content category-list">
+                    <div v-for="layer in overlayMenuData" :key="layer.id" 
+                         class="cat-btn" 
+                         :class="{ active: currentOverlayCat === layer.id }"
+                         @click="selectOverlayCat(layer.id)">
+                        {{ layer.label }}
+                    </div>
+                </div>
+
+                <div v-if="currentOverlayCat" class="editor-section">
+                    <div class="editor-header">
+                        <h3>{{ getOverlayLabel(currentOverlayCat) }}</h3>
+                    </div>
+
+                    <div class="controls-wrapper">
+                        <!-- Výběr textury -->
+                        <div class="control-group">
+                            <div class="label-row">
+                                <label>Styl / Textura</label>
+                                <span class="value-display">{{ getCurrentOverlayIndexDisplay() }}</span>
+                            </div>
+                            <div class="slider-row">
+                                <button class="nav-arrow" @click="changeOverlayItem(-1)">❮</button>
+                                <!-- Range: 0 až Max (0 = Vypnuto) -->
+                                <input type="range" 
+                                       v-model.number="currentOverlayState.index" 
+                                       :max="getCurrentOverlayMax()" 
+                                       min="0"
+                                       @input="updateOverlay">
+                                <button class="nav-arrow" @click="changeOverlayItem(1)">❯</button>
+                            </div>
+                            <div style="text-align: center; font-size: 11px; color: #aaa; margin-top: 2px; font-style: italic;">
+                                {{ getCurrentOverlayName() }}
                             </div>
                         </div>
 
+                        <!-- Paleta -->
+                        <div class="control-group">
+                            <label>Paleta Barvy</label>
+                            <select v-model="currentOverlayState.palette" @change="updateOverlay" class="rdr-select">
+                                <option v-for="pal in palettes" :value="pal">{{ formatPaletteName(pal) }}</option>
+                            </select>
+                        </div>
+
+                        <!-- Tints (Sliders pro Overlay) -->
+                        <div class="tints-group">
+                            <label>Sytost / Průhlednost (Tint 0)</label>
+                            <input type="range" class="tint-range" v-model.number="currentOverlayState.tint0" max="255" @input="updateOverlay">
+                            
+                            <label>Barva / Odstín (Tint 1)</label>
+                            <input type="range" class="tint-range" v-model.number="currentOverlayState.tint1" max="255" @input="updateOverlay">
+                            
+                            <label>Detaily / Jas (Tint 2)</label>
+                            <input type="range" class="tint-range" v-model.number="currentOverlayState.tint2" max="255" @input="updateOverlay">
+                        </div>
+
+                        <div class="action-buttons" v-if="isCreatorMode">
+                             <div style="width: 100%; margin-top: 10px;">
+                                <button class="btn btn-confirm" @click="saveClothes('character')">
+                                    DOKONČIT A ULOŽIT POSTAVU
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

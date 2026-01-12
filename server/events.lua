@@ -10,16 +10,16 @@ AddEventHandler("onResourceStart", function(resource)
     if resource == GetCurrentResourceName() then
         MySQL:execute("SELECT * FROM aprts_clothes", {}, function(result)
             for k, v in pairs(result) do
-                -- Předpoklad: safeJsonDecode je definováno v server/main.lua
-                v.data = safeJsonDecode(v.data)
-
-                -- PlayersClothes je globální proměnná z server/main.lua
-                if v.data then
-                    PlayersClothes[v.charID] = v.data
-                end
+                local cData = safeJsonDecode(v.data) or {}
+                local mData = safeJsonDecode(v.makeup) or {}
+                
+                PlayersClothes[v.charID] = {
+                    clothes = cData,
+                    makeup = mData
+                }
             end
             DataLoaded = true
-            print("^2[APRTS_CLOTHING]^0 Databáze načtena: " .. #result .. " záznamů.")
+            print("^2[APRTS_CLOTHING]^0 Databáze načtena (včetně makeupu).")
         end)
     end
 end)
@@ -92,51 +92,36 @@ end)
 RegisterServerEvent("aprts_clothing:Server:requestPlayerClothes")
 AddEventHandler("aprts_clothing:Server:requestPlayerClothes", function()
     local _source = source
-
-    -- Čekáme, až se DB načte při startu serveru
-    while not DataLoaded do
-        Citizen.Wait(100)
-    end
+    while not DataLoaded do Citizen.Wait(100) end
 
     local user = Core.getUser(_source)
-    if not user then
-        return
-    end
+    if not user then return end
+    local charID = user.getUsedCharacter.charIdentifier
 
-    local character = user.getUsedCharacter
-    if not character then
-        return
-    end
+    local data = PlayersClothes[charID] or { clothes = {}, makeup = {} }
 
-    local charID = character.charIdentifier
-    local clothesData = PlayersClothes[charID] or {}
-
-    TriggerClientEvent("aprts_clothing:Client:receivePlayerClothes", _source, clothesData)
+    -- Posíláme zvlášť oblečení a zvlášť makeup
+    TriggerClientEvent("aprts_clothing:Client:receivePlayerClothes", _source, data.clothes, data.makeup)
 end)
 
 -- Event: Uložení oblečení POSTAVY do databáze
 RegisterServerEvent("aprts_clothing:Server:saveClothes")
-AddEventHandler("aprts_clothing:Server:saveClothes", function(clothesData)
+AddEventHandler("aprts_clothing:Server:saveClothes", function(clothesData, makeupData)
     local _source = source
     local user = Core.getUser(_source)
-    if not user then
-        return
-    end
+    if not user then return end
+    local charID = user.getUsedCharacter.charIdentifier
 
-    local character = user.getUsedCharacter
-    if not character then
-        return
-    end
+    -- Aktualizace cache
+    PlayersClothes[charID] = {
+        clothes = clothesData,
+        makeup = makeupData
+    }
 
-    local charID = character.charIdentifier
-
-    -- Aktualizace cache na serveru
-    PlayersClothes[charID] = clothesData
-
-    -- Uložení do DB (Funkce z server/database.lua)
-    SavePlayerData(charID, clothesData)
-
-    -- notify(_source, "Oblečení postavy uloženo.")
+    -- Uložení do DB
+    SavePlayerData(charID, clothesData, makeupData)
+    
+    -- notify(_source, "Postava uložena.")
 end)
 
 -- Event: Uložení konkrétní kategorie (Legacy podpora, pokud je potřeba)

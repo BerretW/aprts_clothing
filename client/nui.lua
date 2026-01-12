@@ -243,18 +243,23 @@ end)
 -- =========================================================
 
 RegisterNuiCallback("saveClothes", function(data, cb)
-    -- Toto volá jen Creator mód nebo Admin uložení postavy
     local saveType = data.saveType 
 
     if saveType == 'character' then
+        -- Pokud jsme v Creator módu, jen si připravíme data (ale neposíláme hned, pokud to máš jinak řešené)
+        -- Ale standardně zde ukládáme:
+        
         if data.CreatorMode then
-            dataReady = PlayerClothes
+             -- V creator módu často chceme rovnou uložit do DB
+             TriggerServerEvent("aprts_clothing:Server:saveClothes", PlayerClothes, PlayerOverlays)
         else
-            TriggerServerEvent("aprts_clothing:Server:saveClothes", PlayerClothes)
+            -- V běžné hře také ukládáme vše
+            TriggerServerEvent("aprts_clothing:Server:saveClothes", PlayerClothes, PlayerOverlays)
         end
         
+        -- Aktualizace cache
         ClothesCache = DeepCopy(PlayerClothes)
-        notify("Postava byla uložena.")
+        notify("Vzhled postavy byl uložen.")
     end
 
     SetNuiFocus(false, false)
@@ -478,3 +483,29 @@ RegisterNuiCallback("updateWearableState", function(data, cb)
     end
 end)
 
+
+-- Přidat do client/nui.lua
+
+RegisterNUICallback('getOverlayMenu', function(data, cb)
+    local menuData = GetOverlayMenuData()
+    cb(menuData)
+end)
+
+RegisterNUICallback('applyOverlayChange', function(data, cb)
+    local ped = PlayerPedId()
+    
+    -- Přemapování dat z JS
+    local layer = data.layer
+    local index = tonumber(data.index) -- Index textury
+    local palette = data.palette -- String název
+    local t0 = tonumber(data.tint0)
+    local t1 = tonumber(data.tint1)
+    local t2 = tonumber(data.tint2)
+
+    ApplyOverlayToPed(ped, layer, index, palette, t0, t1, t2)
+    cb('ok')
+end)
+
+-- Uprav existující saveClothes callback, aby ukládal i Overlaye
+-- (Musíš sloučit PlayerClothes a PlayerOverlays do jednoho objektu pro DB,
+--  nebo mít v DB dva sloupce. Doporučuji sloučit.)

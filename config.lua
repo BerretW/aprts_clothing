@@ -325,3 +325,42 @@ Config.ClothingMenu = {
         "gunbelts", "gunbelt_accs", "holsters_right", "holsters_knife", "holsters_quivers"
     }
 }
+
+Config.OverlayList = {
+    "eyeshadow",    -- Oční stíny
+    "eyeliner",     -- Oční linky
+    "blush",        -- Tvářenka
+    "lipstick",     -- Rtěnka
+    "foundation",   -- Make-up podklad
+    "ageing",       -- Stárnutí
+    "complex",      -- Pleť (Komplexnost)
+    "freckles",     -- Pihy
+    "moles",        -- Znaménka
+    "acne",         -- Akné
+    "spots",        -- Skvrny
+    "scar",         -- Jizvy
+    "grime",        -- Špína
+    "eyebrow",      -- Obočí (textura)
+    "beard",        -- Vousy (textura - strniště)
+    "hair"          -- Vlasy (textura - doplňky)
+}
+
+-- Překlady pro Overlay kategorie
+Config.OverlayLabels = {
+    ["eyeshadow"] = "Oční stíny",
+    ["eyeliner"] = "Oční linky",
+    ["blush"] = "Tvářenka",
+    ["lipstick"] = "Rtěnka",
+    ["foundation"] = "Podkladová báze",
+    ["ageing"] = "Vrásky a Stárnutí",
+    ["complex"] = "Vzhled pleti",
+    ["freckles"] = "Pihy",
+    ["moles"] = "Znaménka",
+    ["acne"] = "Akné",
+    ["spots"] = "Skvrny na kůži",
+    ["scar"] = "Jizvy",
+    ["grime"] = "Špína",
+    ["eyebrow"] = "Obočí (Textura)",
+    ["beard"] = "Strniště / Vousy",
+    ["hair"] = "Vlasy (Textura)"
+}
