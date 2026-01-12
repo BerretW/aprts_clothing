@@ -80,3 +80,11 @@ function SafeExport(resourceName, functionName, defaultReturn, ...)
     local success, result = pcall(exports[resourceName][functionName], ...)
     if success then return result else return defaultReturn end
 end
+
+function GetShopItemComponentAtIndex(ped, index)
+  local componentHash, a, wearableState = GetShopPedComponentAtIndex(ped, index, true, Citizen.ResultAsInteger(), Citizen.ResultAsInteger())
+  if not componentHash or componentHash == 0 then
+    componentHash, a, wearableState = GetShopPedComponentAtIndex(ped, index, false, Citizen.ResultAsInteger(), Citizen.ResultAsInteger())
+  end
+  return componentHash, wearableState
+end

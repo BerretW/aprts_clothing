@@ -41,9 +41,9 @@ AddEventHandler("vorp_inventory:useItem", function(data)
                 break
             end
         end
-        print(json.encode(data, {
-            indent = true
-        }))
+        -- print(json.encode(data, {
+        --     indent = true
+        -- }))
         if isClothingItem then
 
             -- A) Item má metadata s oblečením -> Aplikovat

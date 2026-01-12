@@ -1,5 +1,5 @@
 -- client/menu.lua
-function OpenMenu(menu, creator)
+function OpenMenu(menu, creator, showBody, showClothes)
     SetNuiFocus(true, true)
     MenuOpen = true
 
@@ -11,7 +11,10 @@ function OpenMenu(menu, creator)
         gender = "female"
     end
 
-    -- Uložíme si aktuální stav pro případné zrušení (Cancel)
+    -- Defaultní hodnoty (pokud nejsou zadány)
+    if showBody == nil then showBody = true end
+    if showClothes == nil then showClothes = true end
+
     if PlayerClothes then
         ClothesCache = DeepCopy(PlayerClothes)
     else
@@ -33,13 +36,13 @@ function OpenMenu(menu, creator)
         gender = gender,
         bodyCategories = Config.BodyCategories,
         creatorMode = creator,
-        
-        -- Indikuje, zda editujeme již existující item (kliknuto v invu)
         isItemMode = (CurrentItemContext ~= nil),
         itemLabel = CurrentItemContext and CurrentItemContext.itemName or "",
-
-        -- NOVÉ: Posíláme seznam typů itemů (clothing_hat, clothing_torso...) pro výběr při tvorbě nového itemu
-        availableItemTypes = Config.ClothingItems 
+        availableItemTypes = Config.ClothingItems,
+        
+        -- NOVÉ: Posíláme info, co zobrazit
+        showBody = showBody,
+        showClothes = showClothes
     })
 end
 

@@ -53,6 +53,7 @@ end
 RegisterNUICallback('getCatData', function(data, cb)
     local gender = data.gender
     local category = data.category
+    local ped = PlayerPedId()
     
     if not Assets or not Assets[gender] then 
         cb({ items = {}, currentIndex = -1, currentVar = 1 })
@@ -65,19 +66,56 @@ RegisterNUICallback('getCatData', function(data, cb)
     local currentVar = 1
     local savedTints = {0, 0, 0} 
     local savedPaletteIndex = 1
+    
+    -- === LOGIKA PRO STAVY (WEARABLE STATES) ===
+    local stateIndex = 0
+    local availableStates = {}
 
+    -- 1. Zkontrolujeme, zda tato kategorie podporuje stavy
+    if WearableStates and WearableStates[gender] and WearableStates[gender][category] then
+        availableStates = WearableStates[gender][category]
+        
+        -- Defaultně vezmeme to, co je v cache (pokud existuje)
+        if PlayerClothes[category] and PlayerClothes[category].state then
+            stateIndex = PlayerClothes[category].state
+        end
+
+        -- 2. POKUS O PŘEČTENÍ REÁLNÉHO STAVU Z PEDA (Overwrite)
+        -- Získáme index komponenty pro danou kategorii
+        local compIndex = GetComponentIndexByCategory(ped, category)
+        if compIndex then
+            -- Native: _GET_SHOP_ITEM_COMPONENT_AT_INDEX
+            -- Získá: bool success, int componentHash, int shopItemHash, int wearableStateHash
+            local retval, componentHash, shopItemHash, wearableStateHash = Citizen.InvokeNative(0x9B908423, ped, compIndex, 0, Citizen.ResultAsInteger(), Citizen.ResultAsInteger(), Citizen.ResultAsInteger())
+            print("Debug - get shop item component at index:", retval, componentHash, shopItemHash, wearableStateHash)
+            if retval and wearableStateHash then
+                -- Projdeme definované názvy stavů a hledáme shodu hashe
+                for i, stateName in ipairs(availableStates) do
+                    if GetHashKey(stateName) == wearableStateHash then
+                        stateIndex = i - 1 -- Lua (od 1) -> JS (od 0)
+                        
+                        -- Aktualizujeme i cache, když už jsme to našli
+                        if not PlayerClothes[category] then PlayerClothes[category] = {} end
+                        PlayerClothes[category].state = stateIndex
+                        
+                        break
+                    end
+                end
+            end
+        end
+    end
+    -- ===========================================
+
+    -- Načtení ostatních dat (Index, Varianta, Tints...)
     if PlayerClothes[category] then
-        -- 1. Načtení indexu a varianty
         if PlayerClothes[category].index then
             currentIndex = PlayerClothes[category].index
             currentVar = PlayerClothes[category].varID or 1
         end
 
-        -- 2. Načtení Tintů
         local t0, t1, t2 = GetSafeTints(PlayerClothes[category])
         savedTints = {t0, t1, t2}
 
-        -- 3. Načtení Palety (Hash -> Index)
         if PlayerClothes[category].palette then
             local currentHash = PlayerClothes[category].palette
             for i, palName in ipairs(Config.Palettes) do
@@ -89,12 +127,16 @@ RegisterNUICallback('getCatData', function(data, cb)
         end
     end
 
+    -- Odeslání do UI
     cb({
         items = items,
         currentIndex = currentIndex,
         currentVar = currentVar,
         savedTints = savedTints,
-        savedPalette = savedPaletteIndex
+        savedPalette = savedPaletteIndex,
+        
+        states = availableStates, 
+        currentState = stateIndex
     })
 end)
 
@@ -372,3 +414,67 @@ RegisterNUICallback('zoomCamera', function(data, cb)
     UpdateCameraPosition()
     cb('ok')
 end)
+
+
+RegisterNuiCallback("updateWearableState", function(data, cb)
+    local ped = PlayerPedId()
+    local category = data.category
+    local stateIndex = data.stateIndex -- Index v poli WearableStates (0-based z JS, takže +1 pro Lua)
+    
+    local gender = IsPedMale(ped) and "male" or "female"
+    
+    -- Ověření, zda máme definice
+    if not WearableStates[gender] or not WearableStates[gender][category] then
+        return cb('error')
+    end
+
+    local stateName = WearableStates[gender][category][stateIndex + 1] -- +1 protože Lua indexuje od 1
+    if not stateName then return cb('error') end
+
+    local stateHash = GetHashKey(stateName)
+
+    -- 1. Musíme zjistit hash aktuální komponenty na těle
+    -- Použijeme tvou pomocnou funkci nebo native
+    local componentIndex = GetComponentIndexByCategory(ped, category)
+    if componentIndex then
+        -- Získáme hash komponenty (to, co má hráč na sobě)
+        local componentHash = Citizen.InvokeNative(0x884968C0, ped, componentIndex) -- _GET_COMPONENT_HASH_AT_INDEX (přibližný native, nebo použij GetShopItemComponentAtIndex)
+        
+        -- Lepší metoda pro získání hashe pro WearableState:
+        local numComponents = GetNumComponentsInPed(ped)
+        local foundHash = nil
+        
+        -- Najdeme hash itemu pro danou kategorii (trochu složitější, ale nutné)
+        -- Zjednodušení: Pokud používáme MetaPedTags, wearable state se aplikuje na peda globálně nebo na konkrétní hash.
+        -- Zkusíme aplikovat state přímo:
+        
+        -- Toto je native z tvého commandu /setstate
+        -- UpdateShopItemWearableState(ped, componentHash, stateHash)
+        -- Ale musíme mít SPRÁVNÝ componentHash.
+        
+        -- Pokusíme se ho vytáhnout přes shop native, pokud existuje:
+        local valid, hash, unk, type = Citizen.InvokeNative(0x9B908423, ped, componentIndex, 0, Citizen.ResultAsInteger(), Citizen.ResultAsInteger(), Citizen.ResultAsInteger()) 
+        -- 0x9B908423 = _GET_SHOP_ITEM_COMPONENT_AT_INDEX (přibližně)
+        -- V tvém commandu jsi použil GetShopItemComponentAtIndex, což je wrapper.
+        
+        local compHash, _, _ = GetShopItemComponentAtIndex(ped, componentIndex, true, Citizen.ResultAsInteger(), Citizen.ResultAsInteger())
+        
+        if compHash and compHash ~= 0 then
+            UpdateShopItemWearableState(compHash, stateHash) -- Tvoje funkce z clothing.lua
+            
+            -- Uložíme si stav do PlayerClothes
+            if not PlayerClothes[category] then PlayerClothes[category] = {} end
+            PlayerClothes[category].state = stateIndex
+            
+            -- Refresh
+            UpdatePedVariation(ped)
+            cb('ok')
+        else
+            print("Nenalezen hash komponenty pro state update.")
+            cb('error')
+        end
+    else
+        cb('error')
+    end
+end)
+

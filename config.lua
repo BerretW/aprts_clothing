@@ -289,6 +289,12 @@ Config.Palettes = {
     "metaped_tint_leather", "metaped_tint_combined_leather"
 }
 
+Config.HairMenu = {
+    ["Hair"] = {"hair_accessories", "hair"},
+    ["Beard"] = {"beards_chops", "hair_bonnet", "beards_chin", "beards_mustache", "beards_complete"}
+}
+
+
 -- Definice kategorií v Menu (Struktura pro NUI)
 Config.ClothingMenu = {
     ["Torso"] = {

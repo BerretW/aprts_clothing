@@ -5,17 +5,21 @@ createApp({
         const isVisible = ref(false);
         const isCreatorMode = ref(false);
         const gender = ref('male');
-        
+
+        // --- NOVÉ: Řízení viditelnosti panelů ---
+        const showBodyPanel = ref(true);
+        const showClothingPanel = ref(true);
+        // ----------------------------------------
+
         // Data menu
         const menuData = ref([]);
         const currentCategory = ref(null);
-        
+
         // Sledování změn (Dirty Flags)
-        // Používáme Set, aby se kategorie neopakovaly
         const touchedCategories = reactive(new Set());
-        
+
         // Data pro tělo (levý panel)
-        const bodyStates = reactive({}); 
+        const bodyStates = reactive({});
 
         // Data pro vybranou kategorii (pravý panel)
         const currentItems = ref([]);
@@ -29,9 +33,9 @@ createApp({
 
         // Palety (konstanty)
         const palettes = [
-            "metaped_tint_generic_clean", "metaped_tint_hair", 
-            "metaped_tint_horse_leather", "metaped_tint_animal", 
-            "metaped_tint_makeup", "metaped_tint_leather", 
+            "metaped_tint_generic_clean", "metaped_tint_hair",
+            "metaped_tint_horse_leather", "metaped_tint_animal",
+            "metaped_tint_makeup", "metaped_tint_leather",
             "metaped_tint_combined_leather"
         ];
 
@@ -46,7 +50,7 @@ createApp({
         const maxVariants = computed(() => {
             if (currentItemIndex.value === -1 || !currentItems.value[currentItemIndex.value]) return 1;
             const item = currentItems.value[currentItemIndex.value];
-            
+
             if (item.drawable) {
                 if (Array.isArray(item.variants)) return item.variants.length;
                 if (typeof item.variants === 'object') return Object.keys(item.variants).length;
@@ -80,7 +84,6 @@ createApp({
             }
         };
 
-        // --- POMOCNÁ FUNKCE PRO OZNAČENÍ ZMĚNY ---
         const markAsChanged = (cat) => {
             if (cat) {
                 touchedCategories.add(cat);
@@ -96,65 +99,91 @@ createApp({
             return pal.replace('metaped_tint_', '').replace(/_/g, ' ');
         };
 
-        // === NOVÁ LOGIKA NÁKUPU ===
+        // === LOGIKA NÁKUPU ===
         const purchaseItems = async () => {
-            // Pokud nebyly provedeny žádné změny
-            if (touchedCategories.size === 0) {
-                // Můžeme poslat prázdný list, Lua to vyhodnotí a pošle notifikaci
-                // nebo to rovnou blokneme tady:
-                // return; 
-            }
-
-            // Převedeme Set na Array pro přenos do Lua
             const changedList = Array.from(touchedCategories);
-
-            const response = await postData('purchaseItems', { 
+            const response = await postData('purchaseItems', {
                 name: newOutfitName.value.trim() !== "" ? newOutfitName.value : "Oblečení",
                 changedCategories: changedList
             });
-            
-            // Pokud Lua vrátí 'ok', zavřeme menu
+
             if (response === 'ok') {
                 closeMenu();
             }
         };
 
         // === BODY LOGIC ===
-        const initBodyMenu = (categories) => {
+const initBodyMenu = (categories) => {
             categories.forEach(async (cat) => {
                 const data = await postData('getCatData', { gender: gender.value, category: cat });
                 if (data) {
                     const items = data.items || [];
                     let currentIdx = (data.currentIndex !== undefined && data.currentIndex !== -1) ? data.currentIndex : 1;
                     currentIdx = currentIdx - 1;
-
                     if (currentIdx < 0) currentIdx = 0;
                     
                     bodyStates[cat] = {
                         items: items,
                         index: currentIdx, 
-                        max: items.length
+                        max: items.length,
+                        
+                        // NOVÉ: States
+                        states: data.states || [], // Seznam názvů stavů
+                        stateIndex: data.currentState || 0
                     };
                 }
             });
         };
 
+         const changeBodyState = (cat, dir) => {
+            const state = bodyStates[cat];
+            if (!state || !state.states || state.states.length === 0) return;
+
+            let newIndex = state.stateIndex + dir;
+            if (newIndex < 0) newIndex = state.states.length - 1;
+            if (newIndex >= state.states.length) newIndex = 0;
+
+            state.stateIndex = newIndex;
+            
+            // Odeslat na server
+            postData('updateWearableState', { 
+                category: cat, 
+                stateIndex: state.stateIndex 
+            });
+        };
+
+
         const changeBodyItem = (cat, dir) => {
             const state = bodyStates[cat];
             if (!state) return;
-            
+
             let newIndex = state.index + dir;
             if (newIndex < 0) newIndex = state.max - 1;
             if (newIndex >= state.max) newIndex = 0;
-            
+
             state.index = newIndex;
             updateBodyItem(cat);
         };
 
         const updateBodyItem = (cat) => {
             const state = bodyStates[cat];
-            markAsChanged(cat); // Změna těla
+            markAsChanged(cat);
             postData('applyItem', { category: cat, index: state.index + 1, varID: 1 });
+        };
+
+        const saveBodyChanges = async () => {
+            // 1. Počkáme, až Lua zpracuje uložení
+            const response = await postData('saveClothes', {
+                saveType: 'character',
+                CreatorMode: isCreatorMode.value,
+                saved: true
+            });
+
+            // 2. Pokud vše proběhlo v pořádku, skryjeme menu
+            if (response === 'ok') {
+                isVisible.value = false;   // Skryje HTML
+                touchedCategories.clear(); // Vyčistí seznam změn
+            }
         };
 
         // === CLOTHING LOGIC ===
@@ -164,10 +193,10 @@ createApp({
             selectedPalette.value = 1;
 
             const data = await postData('getCatData', { gender: gender.value, category: catId });
-            
+
             if (Array.isArray(data)) {
                 currentItems.value = data;
-                onItemChange(false); // False = neoznačovat jako změnu při načtení
+                onItemChange(false);
             } else {
                 currentItems.value = data.items || [];
                 const savedIndex = data.currentIndex;
@@ -181,7 +210,7 @@ createApp({
                 }
 
                 if (data.savedPalette) selectedPalette.value = data.savedPalette;
-                
+
                 if (data.savedTints && Array.isArray(data.savedTints)) {
                     tints[0] = data.savedTints[0];
                     tints[1] = data.savedTints[1];
@@ -192,19 +221,19 @@ createApp({
 
         const changeItem = (dir) => {
             if (currentItems.value.length === 0) return;
-            
+
             let newIndex = currentItemIndex.value + dir;
             if (newIndex < -1) newIndex = currentItems.value.length - 1;
             else if (newIndex >= currentItems.value.length) newIndex = -1;
 
             currentItemIndex.value = newIndex;
             currentVarID.value = 1;
-            onItemChange(true); // User action -> Mark changed
+            onItemChange(true);
         };
 
         const onItemChange = (userAction = true) => {
             if (userAction) markAsChanged(currentCategory.value);
-            
+
             if (currentItemIndex.value === -1) {
                 postData('removeItem', { category: currentCategory.value });
             } else {
@@ -242,43 +271,39 @@ createApp({
 
         const applyTint = () => {
             markAsChanged(currentCategory.value);
-            postData('changeTint', { 
-                category: currentCategory.value, 
-                tint0: tints[0], tint1: tints[1], tint2: tints[2] 
+            postData('changeTint', {
+                category: currentCategory.value,
+                tint0: tints[0], tint1: tints[1], tint2: tints[2]
             });
         };
 
         const removeItem = () => {
             markAsChanged(currentCategory.value);
             currentItemIndex.value = -1;
-            onItemChange(false); // Voláme false, protože markAsChanged jsme už zavolali
+            onItemChange(false);
         };
 
         const resetToNaked = () => {
-            // Reset to naked je drastická změna, vyčistíme trackování nebo označíme vše?
-            // V tomto případě je lepší nechat Lua vyřešit reset a my jen zavřeme/refreshneme
             postData('resetToNaked', {}).then(() => {
                 initBodyMenu(Object.keys(bodyStates));
-                if(currentCategory.value) selectCategory(currentCategory.value);
-                touchedCategories.clear(); // Reset tracking
+                if (currentCategory.value) selectCategory(currentCategory.value);
+                touchedCategories.clear();
             });
         };
 
         const refreshPed = () => postData('refresh', {});
 
         const saveClothes = (type) => {
-            postData('saveClothes', { 
+            postData('saveClothes', {
                 saveType: type,
                 CreatorMode: isCreatorMode.value,
-                saved: true 
+                saved: true
             });
-            // Zavření řeší callback nebo explicitně zde
-            if(type === 'character') closeMenu();
+            if (type === 'character') closeMenu();
         };
 
         const closeMenu = () => {
             isVisible.value = false;
-            // Reset tracking při zavření
             touchedCategories.clear();
             postData('closeClothingMenu', { saved: false });
         };
@@ -324,14 +349,20 @@ createApp({
                     gender.value = data.gender;
                     isCreatorMode.value = data.creatorMode;
                     menuData.value = data.menuData;
-                    
+
+                    // --- NOVÉ: Nastavení viditelnosti podle Lua ---
+                    // Defaultně true, pokud Lua nepošle nic (zpětná kompatibilita)
+                    showBodyPanel.value = (data.showBody !== undefined) ? data.showBody : true;
+                    showClothingPanel.value = (data.showClothes !== undefined) ? data.showClothes : true;
+                    // ----------------------------------------------
+
                     // Reset inputu
                     newOutfitName.value = "";
                     touchedCategories.clear();
-                    
+
                     // Default selection
                     currentCategory.value = null;
-                    
+
                     if (data.bodyCategories) {
                         initBodyMenu(data.bodyCategories);
                     }
@@ -339,6 +370,7 @@ createApp({
             });
 
             document.addEventListener('keyup', (e) => {
+                // Povolíme zavření ESCapem pokud nejsme v Creator módu
                 if (e.which === 27 && !isCreatorMode.value && isVisible.value) closeMenu();
             });
 
@@ -351,21 +383,21 @@ createApp({
 
         return {
             isVisible, isCreatorMode,
+            showBodyPanel, showClothingPanel, // <-- EXPORTOVÁNO PRO HTML
             menuData, bodyStates,
             currentCategory, currentCategoryLabel,
             currentItems, currentItemIndex, currentVarID,
             maxItems, maxVariants,
             palettes, selectedPalette, tints,
-            
-            // New logic
+
             newOutfitName, purchaseItems,
 
-            // Methods
             closeMenu, selectCategory, formatBodyLabel, formatPaletteName,
             changeBodyItem, updateBodyItem,
             changeItem, onItemChange, changeVariant, onVariantChange,
             applyPalette, applyTint, removeItem,
-            resetToNaked, refreshPed, saveClothes
+            resetToNaked, refreshPed, saveClothes,
+            saveBodyChanges, changeBodyState
         };
     }
 }).mount('#app');
